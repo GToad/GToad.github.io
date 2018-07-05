@@ -26,8 +26,7 @@ tags:
 2. 性能的追求。NDK对于一些高性能的功能需求是java层无法比拟的。
 3. 手游的兴起。虚幻4，Unity等引擎开发的手游中都有大量包含游戏逻辑的so库。
 
-因此，本人调查了一下Android Native Hook工具目前的现状:有点惨不忍睹......
-尽管Java层的Hook工具多种多样。
+因此，本人调查了一下Android Native Hook工具目前的现状:尽管Java层的Hook工具多种多样，但是Native Hook的工具缺寥寥无几。（文末解释1）
 主要有两大路线：
 1. PLT Hook
 2. Inline Hook
