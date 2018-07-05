@@ -8,7 +8,6 @@ header-img: "img/post-bg-alitrip.jpg"
 catalog: true
 tags:
     - 产品设计
-    - 阿里巴巴
     - 在线旅行
     - 电子商务
 ---

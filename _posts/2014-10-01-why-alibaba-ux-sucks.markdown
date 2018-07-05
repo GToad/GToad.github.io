@@ -7,7 +7,6 @@ author:     "Hux"
 header-img: "img/post-bg-alibaba.jpg"
 tags:
     - 知乎
-    - 阿里巴巴
     - 交互设计
 ---
 
