@@ -58,7 +58,7 @@ tags:
 
 2. 本文采用的是第二种方法。该方法网络资料中使用较少。它是利用了`__attribute__((constructor))`属性。使用这个constructor属性编译的普通ELF文件被加载入内存后，最先执行的不是main函数，而是具有该属性的函数。同样，本项目中利用此属性编译出来的so文件被加载后，尽管so里没有main函数，但是依然能优先执行，且其执行甚至在JniOnload之前。于是逆向分析了一下编译出来的so库文件。发现具有`constructor`属性的函数会被登记在.init_array中。（相对应的`destructor`属性会在ELF卸载时被自动调用，这些函数会被登记入.fini_array）
 
-（.init_array截图）
+![](/img/in-post/post-android-native-hook-practice/init_array.png)
 
 值得一提的是，`constructor`属性的函数是可以有多个的，对其执行顺序有要求的同学可以通过在代码中对这些函数声明进行排序从而改变其在.init_array中的顺序，二者是按顺序对应的。而执行时，会从.init_array中自上而下地执行这些函数。
 
