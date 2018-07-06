@@ -161,8 +161,8 @@ bool BuildThumbJumpCode(void *pCurAddress , void *pJumpAddress)
 
         //LDR PC, [PC, #0]对应的thumb机器码为：0xf000f8df, NOP为BF00
 
-        if (CLEAR_BIT0((uint32_t)pCurAddress) % 4 != 0) { //补NOP
-            //((uint16_t *) CLEAR_BIT0(pCurAddress))[i++] = 0xBF00;  // NOP
+        if (CLEAR_BIT0((uint32_t)pCurAddress) % 4 != 0) {
+            //((uint16_t *) CLEAR_BIT0(pCurAddress))[i++] = 0xBF00;
             BYTE szLdrPCOpcodes[12] = {0x00, 0xBF, 0xdF, 0xF8, 0x00, 0xF0};
             memcpy(szLdrPCOpcodes + 6, &pJumpAddress, 4);
             memcpy(pCurAddress, szLdrPCOpcodes, 10);
