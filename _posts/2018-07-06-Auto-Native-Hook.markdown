@@ -74,7 +74,7 @@ tags:
 
 现在我们的代码可以在一开始就执行了，那该如何设计这套Inline Hook方案呢？目标是thumb-2和arm指令集下是两套相似的方案。我参考了腾讯游戏安全实验室的一篇教程，其中给出了一个初步的armv7指令集下的Native Hook方案，整理后如下图（高清无码大图请点我）：
 
-（armhook设计图）
+![](/img/in-post/post-android-native-hook-practice/armhook.png)
 
 第一步，根据/proc/self/map中目标so库的内存加载地址与目标Hook地址的偏移计算出实际需要Hook的内存地址。将目标地址处的2条ARM32汇编代码（8 Bytes）进行备份，然后用一条LDR PC指令和一个地址（共计8 Bytes）替换它们。这样就能（以arm模式）将PC指向图中第二部分stub代码所在的位置。由于使用的是LDR而不是BLX，所以lr寄存器不受影响。关键代码如下：
 
@@ -123,7 +123,7 @@ HOOK_ADDR+8
 
 以上是本工具在arm指令集上的Native Hook基本方案。那么在thumb-2指令集上该怎么办呢？我决定使用多模式切换来实现(文末解释2)，整理后如下图（高清无码大图请点我）：
 
-（thumbhook设计图）
+![](/img/in-post/post-android-native-hook-practice/thumbhook.png)
 
 `虽然这部分内容与arm32很相似，但由于细节坑较多，所以我认为下文重新梳理详细思路是必要的。`
 
