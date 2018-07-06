@@ -137,9 +137,10 @@ bool InitThumbHookInfo(INLINE_HOOK_INFO* pstInlineHook)
 {
     ......
 
-    uint16_t *p11 = pstInlineHook->pHookAddr-1+11; //判断最后由(pHookAddr-1)[10:11]组成的thumb命令是不是thumb32，
-                                                   //如果是的话就需要备份14byte或者10byte才能使得汇编指令不被截断。由于跳转指令在补nop的情况下也只需要10byte，
-                                                   //所以就取pstInlineHook->backUpLength为10
+    uint16_t *p11 = pstInlineHook->pHookAddr-1+11;
+//判断最后由(pHookAddr-1)[10:11]组成的thumb命令是不是thumb32，
+//如果是的话就需要备份14byte或者10byte才能使得汇编指令不被截断。由于跳转指令在补nop的情况下也只需要10byte，
+//所以就取pstInlineHook->backUpLength为10
 
     if(isThumb32(*p11))
     {
