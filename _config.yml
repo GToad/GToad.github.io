@@ -1,7 +1,7 @@
 # Site settings
 title: GToad Blog
 SEOTitle: GToad Sec Blog
-header-img: img/home-bg.jpg
+header-img: img/gump.jpg
 email: gtoad@aliyun.com
 description: "移动安全菜鸡"
 keyword: "GToad, Android, Security, tensorflow, fuzz, 反调试, ctf, reverse, pwn, 逆向, 安卓安全, 二进制"
