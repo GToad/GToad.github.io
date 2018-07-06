@@ -140,6 +140,7 @@ bool InitThumbHookInfo(INLINE_HOOK_INFO* pstInlineHook)
     uint16_t *p11 = pstInlineHook->pHookAddr-1+11; //判断最后由(pHookAddr-1)[10:11]组成的thumb命令是不是thumb32，
                                                    //如果是的话就需要备份14byte或者10byte才能使得汇编指令不被截断。由于跳转指令在补nop的情况下也只需要10byte，
                                                    //所以就取pstInlineHook->backUpLength为10
+
     if(isThumb32(*p11))
     {
         LOGI("The last ins is thumb32. Length will be 10.");
@@ -162,7 +163,6 @@ bool BuildThumbJumpCode(void *pCurAddress , void *pJumpAddress)
         //LDR PC, [PC, #0]对应的thumb机器码为：0xf000f8df, NOP为BF00
 
         if (CLEAR_BIT0((uint32_t)pCurAddress) % 4 != 0) {
-            //((uint16_t *) CLEAR_BIT0(pCurAddress))[i++] = 0xBF00;
             BYTE szLdrPCOpcodes[12] = {0x00, 0xBF, 0xdF, 0xF8, 0x00, 0xF0};
             memcpy(szLdrPCOpcodes + 6, &pJumpAddress, 4);
             memcpy(pCurAddress, szLdrPCOpcodes, 10);
