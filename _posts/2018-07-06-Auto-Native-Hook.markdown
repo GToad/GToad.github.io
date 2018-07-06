@@ -138,11 +138,11 @@ bool InitThumbHookInfo(INLINE_HOOK_INFO* pstInlineHook)
     ......
 
     uint16_t *p11 = pstInlineHook->pHookAddr-1+11;
-//判断最后由(pHookAddr-1)[10:11]组成的thumb命令是不是thumb32，
+    //判断最后由(pHookAddr-1)[10:11]组成的thumb命令是不是thumb32，
 
-//如果是的话就需要备份14byte或者10byte才能使得汇编指令不被截断。由于跳转指令在补nop的情况下也只需要10byte，
+    //如果是的话就需要备份14byte或者10byte才能使得汇编指令不被截断。由于跳转指令在补nop的情况下也只需要10byte，
 
-//所以就取pstInlineHook->backUpLength为10
+    //所以就取pstInlineHook->backUpLength为10
 
     if(isThumb32(*p11))
     {
@@ -153,7 +153,9 @@ bool InitThumbHookInfo(INLINE_HOOK_INFO* pstInlineHook)
     else{
         LOGI("The last ins is not thumb32. Length will be 12.");
         pstInlineHook->backUpLength = 12;
-        memcpy(pstInlineHook->szbyBackupOpcodes, pstInlineHook->pHookAddr-1, pstInlineHook->backUpLength); //修正：否则szbyBackupOpcodes会向后偏差1 byte
+        //修正：否则szbyBackupOpcodes会向后偏差1 byte
+
+        memcpy(pstInlineHook->szbyBackupOpcodes, pstInlineHook->pHookAddr-1, pstInlineHook->backUpLength); 
     }
     
     ......
@@ -174,6 +176,7 @@ bool BuildThumbJumpCode(void *pCurAddress , void *pJumpAddress)
         else{
             BYTE szLdrPCOpcodes[8] = {0xdF, 0xF8, 0x00, 0xF0};
             //将目的地址拷贝到跳转指令缓存位置
+            
             memcpy(szLdrPCOpcodes + 4, &pJumpAddress, 4);
             memcpy(pCurAddress, szLdrPCOpcodes, 8);
             cacheflush(*((uint32_t*)pCurAddress), 8, 0);
@@ -297,9 +300,10 @@ void ModifyIBored()
     
     uint32_t uiHookAddr = (uint32_t)pModuleBaseAddr + target_offset; //真实Hook的内存地址
 
+    //之所以人来判断那是因为Native Hook之前肯定是要逆向分析一下的，那时候就能知道是哪种模式。而且自动识别arm和thumb比较麻烦。
 
-    if(is_target_thumb){ //之所以人来判断那是因为Native Hook之前肯定是要逆向分析一下的，那时候就能知道是哪种模式。而且自动识别arm和thumb比较麻烦。
-    
+    if(is_target_thumb){ 
+
         uiHookAddr++;
         LOGI("uiHookAddr is %X in thumb mode", uiHookAddr);
     }
