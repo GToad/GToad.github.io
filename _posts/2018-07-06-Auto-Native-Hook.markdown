@@ -215,7 +215,7 @@ _shellcode_start_s_thumb:
 第三步，构造备份代码。构造思路是先执行之前备份的X Bytes的thumb-2代码，然后用LDR.W指令来跳转回Hook地址+Xbytes的地址处继续执行。此处先不考虑PC修复，下文会说明。
 
 细节1：LDR是arm32的指令，LDR.W是thumb32的指令，作用是相同的。这里想说的是：为什么整个过程中都一直在用LDR和LDR.W，只有在第二步中有使用过BLX指令来进行跳转？原因很简单，为了保存状态。从第一步跳转到stub开始，如果跳转使用了BLX，那就会影响到lr等寄存器，而如果使用LDR/LDR.W则只会改变PC来实现跳转而已。stub中唯一的那次BLX是由于当时需要跳转到用户自己写的Hook功能函数中，这是个正规的函数，它最后需要凭借BLX设置的lr寄存器来跳转回BLX指令的下一条指令。并且这个唯一的BLX处于保存全部寄存器的下面，恢复全部寄存器的上面，这部分的代码就是所谓的“安全地带”。因此，这其中改变的lr寄存器将在之后被恢复成最初始的状态。第二步的细节3中提及的r3寄存器的操作要放在这个“安全区”里也是这个原因。而在stub之外，我们的跳转只能影响到PC，不可以去改变lr寄存器，所以必须使用LDR/LDR.W。
-细节2：下面的抽象图中可以发现与arm中的不同，arm中最后是`LDR PC, [PC, #-4]`,这是由于CPU三级流水的关系，执行某条汇编指令时，PC的值在arm下是当前地址+8，在thumb-2下是当前地址+4。而我们要跳转的地址在本条指令后的4 Bytes处，因此，arm下需要PC-4，thumb下需要PC-0。
+细节2：下面的抽象图中可以发现与arm中的不同，arm中最后是`LDR PC, [PC, #-4]`,这是由于CPU三级流水的关系，执行某条汇编指令时，PC的值在arm下是当前地址+8，在thumb-2下是当前地址+4。而我们要跳转的地址在本条指令后的4 Bytes处，因此，arm下需要PC-4，thumb下就是PC指向的地址。
 
 构造出来的汇编代码抽象形式如下：
 
@@ -224,7 +224,7 @@ _shellcode_start_s_thumb:
 备份代码2
 备份代码3
 ......
-LDR.W PC, [PC]
+LDR.W PC, [PC, #0]
 HOOK_ADDR + 8
 ```
 
@@ -257,13 +257,114 @@ HOOK_ADDR + X
 
 ## 使用说明（以Xposed为例）
 
-本项目在有Xposed框架的测试机上运行时，可以使用一个插件在APP的起始环节就加载本项目的so。
+使用者先找到想要Hook的目标，然后在本项目中写自己需要的Hook功能，然后在项目根目录使用`ndk-build`进行编译，需要注意的是本项目中需要严格控制arm和thumb模式，所以`/jni/InlineHook/`和`/jni/Interface/`目录下的Android.mk中`LOCAL_ARM_MODE := arm`不要修改，因为现在默认是编译成thumb模式，这样一来第二步和自定义的Hook函数就不再是设计图中的ARM模式了。自己写的Hook功能写在InlineHook.cpp下，注意`constructor`属性，示例代码如下：
+```c
+void ModifyIBored() __attribute__((constructor));
 
-使用者先找到想要Hook的目标，然后写自己需要的Hook功能。
+/**
+ * 针对IBored应用，通过inline hook改变游戏逻辑的测试函数
+ */
+void ModifyIBored()
+{
+    LOGI("In IHook's ModifyIBored.");
+    int target_offset = 0x43b8; //想Hook的目标在目标so中的偏移
+    bool is_target_thumb = true; //目标是否是thumb模式？
+    void* pModuleBaseAddr = GetModuleBaseAddr(-1, "libnative-lib.so"); //目标so的名称
+    if(pModuleBaseAddr == 0)
+    {
+        LOGI("get module base error.");
+        return;
+    }
+    
+    uint32_t uiHookAddr = (uint32_t)pModuleBaseAddr + target_offset; //真实Hook的内存地址
 
-本人使用这个插件加载so就很方便啦，不用重启手机，它会自动去系统路径下寻找文件名符合的so然后加载到目标APP中。
+    if(is_target_thumb){ //之所以人来判断那是因为Native Hook之前肯定是要逆向分析一下的，那时候就能知道是哪种模式。而且自动识别arm和thumb比较麻烦。
+        uiHookAddr++;
+        LOGI("uiHookAddr is %X in thumb mode", uiHookAddr);
+    }
+    else{
+        LOGI("uiHookAddr is %X in arm mode", uiHookAddr);
+    }
+    
+    InlineHook((void*)(uiHookAddr), EvilHookStubFunctionForIBored);
+}
+```
 
+本项目在有Xposed框架的测试机上运行时，可以使用一个插件在APP的起始环节就加载本项目的so。本人使用这个插件加载so就很方便啦，不用重启手机，它会自动去系统路径下寻找文件名符合的so然后加载到目标APP中。这个插件的关键代码如下：
 
+```java
+public class HookToast implements IXposedHookLoadPackage{
+    @Override
+    public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpp) throws Throwable {
+        String packageName="";
+        String activityName="";
+        String soName="";
+        try{
+            packageName = "com.sec.gtoad.inline_hook_test3"; //目标app
+            activityName = "com.sec.gtoad.inline_hook_test3.MainActivity"; //目标app的启动activity
+            soName = "InlineHook";                          //我们so的名称（libInlineHook.so）
+        } catch (Exception e){
+            XposedBridge.log("parse result " + e.getMessage());
+            Log.w("GToad", "parse result " + e.getMessage());
+        }
+
+        if(!lpp.packageName.equals(packageName)) return;
+        XposedBridge.log("load package: " + lpp.packageName);
+        Log.w("GToad","load package: " + lpp.packageName);
+
+        hookActivityOnCreate(lpp,activityName,soName,packageName); //当启动Activity开始创建时，就加载我们的so库
+
+    }
+
+    public static boolean loadArbitrarySo(XC_LoadPackage.LoadPackageParam lpp, String soname, String pkg) {
+        if (lpp.packageName.equals(pkg)) {
+            XposedBridge.log("trying to load so file: " + soname + " for " + pkg);
+            Log.w("GToad","trying to load so file: " + soname + " for " + pkg);
+            try {
+                Log.w("GToad","loading1");
+
+                // /vendor/lib:/system/lib 只要把我们的so放到这些目录之一插件就能找到
+                Log.w("GToad",System.getProperty("java.library.path")); 
+                System.loadLibrary(soname);
+                Log.w("GToad","loading2");
+            } catch (Exception e) {
+                XposedBridge.log("failed to load so");
+                Log.w("GToad","failed to load so");
+                return false;
+            }
+            XposedBridge.log("" + soname + " loaded");
+            Log.w("GToad","" + soname + " loaded");
+            return true;
+        }
+        XposedBridge.log("" + pkg + " not found");
+        Log.w("GToad","" + pkg + " not found");
+        return false;
+    }
+
+        private void hookActivityOnCreate(final XC_LoadPackage.LoadPackageParam lpp, final String activityName, final String soName, final String packageName){
+        try {
+            XposedHelpers.findAndHookMethod(activityName, lpp.classLoader, "onCreate", Bundle.class, new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam mhp) throws Throwable {
+                    XposedBridge.log("before " + activityName + ".onCreate");
+                    Log.w("GToad","before " + activityName + ".onCreate");
+                    super.beforeHookedMethod(mhp);
+                }
+
+                @Override
+                protected void afterHookedMethod(MethodHookParam mhp) throws Throwable {
+                    XposedBridge.log("after " + activityName + ".onCreate");
+                    Log.w("GToad","after " + activityName + ".onCreate");
+                    loadArbitrarySo(lpp,soName,packageName);
+                    super.afterHookedMethod(mhp);
+                }
+            });
+        }  catch (Throwable e) {
+            XposedBridge.log("" + activityName + ".onCreate " + e.getMessage());
+        }
+    }
+}
+```
 
 ## 总结
 
