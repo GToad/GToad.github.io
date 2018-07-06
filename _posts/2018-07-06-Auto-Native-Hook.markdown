@@ -275,15 +275,20 @@ void ModifyIBored() __attribute__((constructor));
 
 /**
 
+
  * 针对IBored应用，通过inline hook改变游戏逻辑的测试函数
- 
+
+
  */
 void ModifyIBored()
 {
     LOGI("In IHook's ModifyIBored.");
     int target_offset = 0x43b8; //想Hook的目标在目标so中的偏移
+
     bool is_target_thumb = true; //目标是否是thumb模式？
+
     void* pModuleBaseAddr = GetModuleBaseAddr(-1, "libnative-lib.so"); //目标so的名称
+
     if(pModuleBaseAddr == 0)
     {
         LOGI("get module base error.");
@@ -292,7 +297,9 @@ void ModifyIBored()
     
     uint32_t uiHookAddr = (uint32_t)pModuleBaseAddr + target_offset; //真实Hook的内存地址
 
+
     if(is_target_thumb){ //之所以人来判断那是因为Native Hook之前肯定是要逆向分析一下的，那时候就能知道是哪种模式。而且自动识别arm和thumb比较麻烦。
+    
         uiHookAddr++;
         LOGI("uiHookAddr is %X in thumb mode", uiHookAddr);
     }
