@@ -24,11 +24,11 @@ tags:
 2. 性能的追求。NDK对于一些高性能的功能需求是java层无法比拟的。
 3. 手游的兴起。虚幻4，Unity等引擎开发的手游中都有大量包含游戏逻辑的so库。
 
-因此，本人调查了一下Android Native Hook工具目前的现状。尽管Java层的Hook工具多种多样，但是Native Hook的工具却非常少并且在安卓5.0以上的适配工具更是寥寥无几。（文末说明1）而目前Native Hook主要有两大技术路线：
+因此，本人调查了一下Android Native Hook工具目前的现状。尽管Java层的Hook工具多种多样，但是Native Hook的工具却非常少并且在`安卓5.0以上`的适配工具更是寥寥无几。（文末说明1）而目前Native Hook主要有两大技术路线：
 1. PLT Hook
 2. Inline Hook
 
-这两种技术路线本人都实践了一下，关于它们的对比，我在《Android Native Hook》中有介绍，所以这里就不多说了。最终，我用了Inline Hook来做这个项目。
+这两种技术路线本人都实践了一下，关于它们的对比，我在[《Android Native Hook技术路线概述》](/2017/06/24/Android-Native-Hook/)中有介绍，所以这里就不多说了。最终，我用了`Inline Hook`来做这个项目。
 
 
 ## 目标效果
@@ -46,7 +46,7 @@ tags:
 
 最后完成项目的方案是：本工具是一个so库。用Java Hook工具在APP运行一开始的onCreate方法处Hook，然后
 加载本so后，自动开始执行Hook逻辑。
-为了方便叙述，接下来的Java Hook工具我就使用目前这类工具里最流行的Xposed，本项目的生成文件名为libautohook.so。
+为了方便叙述，接下来的Java Hook工具我就使用目前这类工具里最流行的`Xposed`，本项目的生成文件名为`libautohook.so`。
 
 
 ## 自动执行
@@ -66,9 +66,9 @@ tags:
 
 先说一下使用的工具：
 
-1. 使用keystone查找指定架构下汇编指令的机器码
-2. 使用MS VISIO制作了下面的设计图
-3. 调试工具用的是IDA
+1. 使用`keystone`查找指定架构下汇编指令的机器码
+2. 使用`MS VISIO`制作了下面的设计图
+3. 调试工具用的是`IDA pro`
 
 #### Arm32方案
 
