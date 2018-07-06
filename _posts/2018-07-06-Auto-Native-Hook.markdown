@@ -4,7 +4,7 @@ title:      "Android Native Hook工具实践"
 subtitle:   ""
 date:       2018-07-06 12:00:00
 author:     "GToad"
-header-img: "img/post-bg-2015.jpg"
+header-img: "img/post-bg-2018.jpg"
 catalog: true
 tags:
     - Android
@@ -60,7 +60,7 @@ tags:
 
 ![](/img/in-post/post-android-native-hook-practice/init_array.png)
 
-值得一提的是，`constructor`属性的函数是可以有多个的，对其执行顺序有要求的同学可以通过在代码中对这些函数声明进行排序从而改变其在.init_array中的顺序，二者是按顺序对应的。而执行时，会从.init_array中自上而下地执行这些函数。
+值得一提的是，`constructor`属性的函数是可以有多个的，对其执行顺序有要求的同学可以通过在代码中对这些函数声明进行排序从而改变其在.init_array中的顺序，二者是按顺序对应的。而执行时，会从.init_array中自上而下地执行这些函数。所以图中的自动优先执行顺序为：main5->main3->main1->main2->main4。并且后面会说到，从+1可以看出这些函数是thumb模式编译的。
 
 ## 方案设计
 
