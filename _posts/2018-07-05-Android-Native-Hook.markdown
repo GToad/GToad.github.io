@@ -79,6 +79,7 @@ tags:
 4. 对于PLT Hook的强制批量Hook的特性，Native Hook要灵活许多。当想要进行批量Hook一些系统API时也可以直接去找内存里对应的如libc.so这些库，对它们中的API进行Hook，这样的话，所有对这个API的调用也就都被批量Hook了。
 
 ## 技术对比
+
 根据以上的分析，我们发现这两种技术在原理和适用场景上的差别是相当大的。因此有必要进行一下对比，给那些有Native Hook需求的童鞋一些参考。
 
 | Name | PLT Hook | Native Hook | 
@@ -94,4 +95,9 @@ tags:
 因此对于正在寻找Native Hook工具的同学们需要仔细预估一下自己的Native Hook需求，如果只对于系统调用有参数或者性能上的监控需求，那可以考虑PLT Hook。一般适合APP的官方员工。
 而如果是希望应对各种各样APP自己独有的NDK函数或者代码段的话，目前只能选择Inline Hook。适合APP逆向人员，软件分析人员，CTF Android逆向解题等。
 
+##文末说明
+
+关于文中的一些解释与需求可能与别的同学的理解有偏差，这很正常，因为大家对Native Hook的需求不同。此处补充解释一下：
+
+1. 关于目前公开的Android Native Hook工具寥寥无几这一点我补充解释一下：唯一一个公开且接近于Java Hook的Xposed那样好用的工具可能就只是Cydia Substrate了。但是该项目已经好几年没更新，并且只支持到`安卓5.0以前`。还有一个不错的Native Hook工具是`Frida`，但是它的运行原理涉及`调试`，因此遇到`反调试`会相当棘手。由于本人反调试遇到的情况较多，所以Frida不怎么用。
 
