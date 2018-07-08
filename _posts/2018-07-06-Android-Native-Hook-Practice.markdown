@@ -44,8 +44,8 @@ tags:
 
 ## 最终方案
 
-最后完成项目的方案是：本工具是一个so库。用Java Hook工具在APP运行一开始的onCreate方法处Hook，然后
-加载本so后，自动开始执行Hook逻辑。
+最后完成项目的方案是：本工具是一个so库。用Java Hook工具在APP的入口Activity运行一开始的onCreate方法处Hook，然后加载本so。
+加载后，自动开始执行Hook逻辑。
 为了方便叙述，接下来的Java Hook工具我就使用目前这类工具里最流行的`Xposed`，本项目的生成文件名为`libautohook.so`。
 
 
@@ -280,7 +280,7 @@ HOOK_ADDR + X
 ```c
 //用户自定义的stub函数，嵌入在hook点中，可直接操作寄存器等改变游戏逻辑操作
 
-//这里将R2寄存器锁定为0x333，一个远大于30的值
+//这里将R0寄存器锁定为0x333，一个远大于30的值
 
 //@param regs 寄存器结构，保存寄存器当前hook点的寄存器信息
 
