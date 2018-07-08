@@ -200,6 +200,8 @@ bool BuildThumbJumpCode(void *pCurAddress , void *pJumpAddress)
 
 `细节4`：那条bic指令是用来清除`_old_function_addr_s_thumb`变量的最低位的。因为如果该Hook目标会被多次调用，那每次这个`_old_function_addr_s_thumb`都会被+1。第一次没有问题，成功变成了thumb模式，而第二次会以arm模式下偏2 bytes跳转，之后偏差越来越大，模式交叉出现。因此，本人使用bic指令来清除每次Hook调用后的地址+1效果。
 
+`细节5`：用户自定义的Hook功能函数是有一个参数的`pt_regs *regs`，这个参数就是用`mov r0, sp`传递的，此时r0指向的这个结构就是Hook跳转前寄存器的状态。不会受到stub或者Hook功能函数的影响。
+
 关键代码如下：
 
 ```
@@ -276,6 +278,26 @@ HOOK_ADDR + X
 
 使用者先找到想要Hook的目标，然后在本项目中写自己需要的Hook功能，然后在项目根目录使用`ndk-build`进行编译，需要注意的是本项目中需要严格控制arm和thumb模式，所以`/jni/InlineHook/`和`/jni/Interface/`目录下的Android.mk中`LOCAL_ARM_MODE := arm`不要修改，因为现在默认是编译成thumb模式，这样一来第二步和自定义的Hook函数就不再是设计图中的ARM模式了。自己写的Hook功能写在InlineHook.cpp下，注意`constructor`属性，示例代码如下：
 ```c
+/**
+
+ * 用户自定义的stub函数，嵌入在hook点中，可直接操作寄存器等改变游戏逻辑操作
+
+ * 这里将R2寄存器锁定为0x333，一个远大于30的值
+
+ * @param regs 寄存器结构，保存寄存器当前hook点的寄存器信息
+
+ */
+
+//Hook功能函数一定要有这个pt_regs *regs输入参数才能获取stub中r0指向的栈上保存的全部寄存器的值。
+
+void EvilHookStubFunctionForIBored(pt_regs *regs)
+{
+    LOGI("In Evil Hook Stub.");
+    //将r0修改为0x333
+
+    regs->uregs[0]=0x333;
+}
+
 void ModifyIBored() __attribute__((constructor));
 
 /**
