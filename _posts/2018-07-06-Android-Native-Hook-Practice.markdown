@@ -278,15 +278,12 @@ HOOK_ADDR + X
 
 使用者先找到想要Hook的目标，然后在本项目中写自己需要的Hook功能，然后在项目根目录使用`ndk-build`进行编译，需要注意的是本项目中需要严格控制arm和thumb模式，所以`/jni/InlineHook/`和`/jni/Interface/`目录下的Android.mk中`LOCAL_ARM_MODE := arm`不要修改，因为现在默认是编译成thumb模式，这样一来第二步和自定义的Hook函数就不再是设计图中的ARM模式了。自己写的Hook功能写在InlineHook.cpp下，注意`constructor`属性，示例代码如下：
 ```c
-/**
+//用户自定义的stub函数，嵌入在hook点中，可直接操作寄存器等改变游戏逻辑操作
 
- * 用户自定义的stub函数，嵌入在hook点中，可直接操作寄存器等改变游戏逻辑操作
+//这里将R2寄存器锁定为0x333，一个远大于30的值
 
- * 这里将R2寄存器锁定为0x333，一个远大于30的值
+//@param regs 寄存器结构，保存寄存器当前hook点的寄存器信息
 
- * @param regs 寄存器结构，保存寄存器当前hook点的寄存器信息
-
- */
 
 //Hook功能函数一定要有这个pt_regs *regs输入参数才能获取stub中r0指向的栈上保存的全部寄存器的值。
 
