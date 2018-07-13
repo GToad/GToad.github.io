@@ -141,26 +141,35 @@ bool InitThumbHookInfo(INLINE_HOOK_INFO* pstInlineHook)
 {
     ......
 
-    uint16_t *p11 = pstInlineHook->pHookAddr-1+11;
-    //判断最后由(pHookAddr-1)[10:11]组成的thumb命令是不是thumb32，
+    uint16_t *p11;
+
+    for (int k=5;k>=0;k--){
+        p11 = pstInlineHook->pHookAddr-1+k*2;
+        LOGI("P11 : %x",*p11);
+        if(isThumb32(*p11)){
+            is_thumb32_count += 1;
+        }else{
+            break;
+        }
+    }
 
     //如果是的话就需要备份14byte或者10byte才能使得汇编指令不被截断。由于跳转指令在补nop的情况下也只需要10byte，
 
     //所以就取pstInlineHook->backUpLength为10
 
-    if(isThumb32(*p11))
+    if(is_thumb32_count%2==1)
     {
         LOGI("The last ins is thumb32. Length will be 10.");
         pstInlineHook->backUpLength = 10;
-        memcpy(pstInlineHook->szbyBackupOpcodes, pstInlineHook->pHookAddr-1, pstInlineHook->backUpLength);
     }
     else{
         LOGI("The last ins is not thumb32. Length will be 12.");
         pstInlineHook->backUpLength = 12;
-        //修正：否则szbyBackupOpcodes会向后偏差1 byte
-
-        memcpy(pstInlineHook->szbyBackupOpcodes, pstInlineHook->pHookAddr-1, pstInlineHook->backUpLength); 
     }
+
+    //修正：否则szbyBackupOpcodes会向后偏差1 byte
+
+    memcpy(pstInlineHook->szbyBackupOpcodes, pstInlineHook->pHookAddr-1, pstInlineHook->backUpLength); 
     
     ......
 }
@@ -252,7 +261,7 @@ HOOK_ADDR + 8
 
 ## 指令修复（概述）
 
-`注：本部分内容较多且相关代码占了几乎本项目开发的一半时间，故此处仅给出概述，本人为这部分内容独立写一篇文章详细介绍以方便读者更好地学习这方面内容。`
+`注：本部分内容较多且相关代码占了几乎本项目开发的一半时间，故此处仅给出概述，本人为这部分内容独立写一篇文章《Android Inline Hook中的指令修复》来详细介绍以方便读者更好地学习这方面内容。`
 
 在上文的处理中，我们很好地保存并恢复了寄存器原本的状态。那么，原本目标程序的汇编指令真的是在它原有的状态下执行的吗？依然不是。虽然寄存器的确一模一样，但是那几条被备份的指令是被移动到了另一个地址上。这样当执行它们的时候PC寄存器的值就改变了。因此，如果这条指令的操作如果涉及到PC的值，那这条指令的执行效果就很可能和原来不一样。所以，我们需要对备份的指令进行修复。在实际修复过程中，本人发现还有些指令也受影响，有如下几种：
 
@@ -303,10 +312,15 @@ HOOK_ADDR + X
 
 ![](/img/in-post/post-android-native-hook-practice/b_condition_fix_design_3.png)
 
-为了解决第一个问题，本人先在Hook一开始的init函数中建立一个记录所有备份指令修复后长度的数组`pstInlineHook->backUpFixLengthList`，然后当修复条件跳转指令时，通过计算其后面修复指令的长度来得到X的值。这个方法一开始只是用来解决问题1的，当时还没想到问题2的情况。因为这个数组中看不出后面的指令是否存在其它条件跳转指令，所以最后的跳转嵌套时会出错。那第二个问题如何解决呢？本人开始意识到如果条件跳转指令要用这种”两端“式的修复方式的话，会使得之后的修复逻辑变得很复杂。但是按照原程序的执行逻辑顺序似乎又只能这么做...吗？最后本人想到了一个新的方案：`逆向思维方案`。
+为了解决第一个问题，本人先在Hook一开始的init函数中建立一个记录所有备份指令修复后长度的数组`pstInlineHook->backUpFixLengthList`，然后当修复条件跳转指令时，通过计算其后面修复指令的长度来得到X的值。这个方法一开始只是用来解决问题1的，当时还没想到问题2的情况。因为这个数组中看不出后面的指令是否存在其它条件跳转指令，所以最后的跳转嵌套时会出错。那第二个问题如何解决呢？本人开始意识到如果条件跳转指令要用这种”两端“式的修复方式的话，会使得之后的修复逻辑变得很复杂。但是按照原程序的执行逻辑顺序似乎又只能这么做...吗？最后本人想到了一个新的方案：`逆向思维方案`，如下图：
 
+![](/img/in-post/post-android-native-hook-practice/b_condition_fix_new_design_1.png)
 
+图中可以看到，原来的BLS指令被转化为了BHI指令，也就是`小于等于`的跳转逻辑变成了`大于`。这样一来，原本跳转的目标逻辑现在就可以紧贴到BHI指令下面。从而使得条件跳转指令的修复代码也和其它指令一样，成为一个连续的代码段。并且BHI后面的参数在Thumb16中将固定为10。那么对于多条条件跳转指令来说呢？如下图：
 
+![](/img/in-post/post-android-native-hook-practice/b_condition_fix_new_design_2.png)
+
+从图中可以看出来，又回到了最初从上到下一一对应，末尾跳转的形式。而之前新增的`pstInlineHook->backUpFixLengthList`数组依然保留了，因为当跳转的目标地址依然在备份代码范围内时需要用到它，《Android Inline Hook中的指令修复》中会讲解，此处不再赘述。
 
 
 ## 使用说明（以Xposed为例）

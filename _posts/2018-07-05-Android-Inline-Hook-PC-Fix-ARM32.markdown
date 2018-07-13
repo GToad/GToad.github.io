@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "Android Inline Hook中的PC相关指令修复——ARM32篇"
+title:      "Android Inline Hook中的指令修复"
 subtitle:   ""
 date:       2017-06-24 12:00:00
 author:     "GToad"
