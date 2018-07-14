@@ -203,11 +203,146 @@ ADD指令可能会涉及到PC，PC就是R15寄存器，用到它的时候它会�
 
 ARM32下的其它指令无需修复，直接在备份代码中使用即可。
 
+## Thumb16
+
+#### B, BX
+
+核心修复代码如下：
+```c
+	trampoline_instructions[idx++] = 0xF8DF;
+	trampoline_instructions[idx++] = 0xF000;	// LDR.W PC, [PC]
+	trampoline_instructions[idx++] = value & 0xFFFF;
+	trampoline_instructions[idx++] = value >> 16;
+```
+
+1. 计算出要跳转的绝对地址Value
+2. 用LDR.W这个Thumb32指令加载后面的Value跳转过去
+
+#### ADD
+
+核心修复代码如下：
+```c
+	rdn = ((instruction & 0x80) >> 4) | (instruction & 0x7);
+	
+	for (r = 7; ; --r) {
+		if (r != rdn) {
+			break;
+		}
+	}
+	
+	trampoline_instructions[0] = 0xB400 | (1 << r);	// PUSH {Rr}
+	trampoline_instructions[1] = 0x4802 | (r << 8);	// LDR Rr, [PC, #8]
+	trampoline_instructions[2] = (instruction & 0xFF87) | (r << 3); //我猜是adr Rd, Rr
+	trampoline_instructions[3] = 0xBC00 | (1 << r);	// POP {Rr}
+	trampoline_instructions[4] = 0xE002;	// B PC
+	trampoline_instructions[5] = 0xBF00;
+	trampoline_instructions[6] = pc & 0xFFFF;  //计算得到的Value实际值
+	trampoline_instructions[7] = pc >> 16;
+```
+
+#### MOV, ADR, LDR
+
+#### CB
+
+#### 其它指令
+
+Thumb模式下，需要把其它备份的Thumb16指令下方补一个NOP！为什么？因为上文中我们修复的Thumb指令中都是用Thumb32指令LDR.W PC XXX进行跳转的。而`Thumb32下涉及修改PC的指令一定要位于可以整除4的地址上`。因此，我们需要保证每个Thumb指令都被修复成可以整除4的大小，这样，修复时只要保证当前LDR.W要在当前正在修复的指令中的偏移可以整除4就行了。
+
+1. ADD_THUMB16命令会用到R0-R7中的某个寄存器Rn作为保存结果的寄存器，于是这个寄存器我们修复时不去影响它，从R0-R7中选择另一个Rr。先用PUSH将Rr原本的值存入栈中。
+2. 把计算出来的与原PC相关的Value值存入Rr寄存器。
+3. 把Rr代替原来指令ADD Rd, X中的X，从而加给目标寄存器Rd。
+4. POP出Rr原本的值
+5. 用B命令进行跳转，从而跨越下方Value的值继续执行。
+
+
 ## Thumb32
 
 #### B, BX, BLX, BL
 
+修复代码如下：
+```c
+else if (type == BLX_THUMB32 || type == BL_THUMB32 || type == B1_THUMB32 || type == B2_THUMB32) {
+		uint32_t j1;
+		uint32_t j2;
+		uint32_t s;
+		uint32_t i1;
+		uint32_t i2;
+		uint32_t x;
+		uint32_t imm32;
+		uint32_t value;
+
+		j1 = (low_instruction & 0x2000) >> 13;
+		j2 = (low_instruction & 0x800) >> 11;
+		s = (high_instruction & 0x400) >> 10;
+		i1 = !(j1 ^ s);
+		i2 = !(j2 ^ s);
+
+		if (type == BLX_THUMB32 || type == BL_THUMB32) {
+            LOGI("BLX_THUMB32 BL_THUMB32");
+			trampoline_instructions[idx++] = 0xF20F;
+			trampoline_instructions[idx++] = 0x0E09;	// ADD.W LR, PC, #9
+		}
+		else if (type == B1_THUMB32) {
+            LOGI("B1_THUMB32");
+			trampoline_instructions[idx++] = 0xD000 | ((high_instruction & 0x3C0) << 2);
+			trampoline_instructions[idx++] = 0xE003;	// B PC, #6
+		}
+		trampoline_instructions[idx++] = 0xF8DF;
+		trampoline_instructions[idx++] = 0xF000;	// LDR.W PC, [PC]
+		if (type == BLX_THUMB32) {
+            LOGI("BLX_THUMB32");
+			x = (s << 24) | (i1 << 23) | (i2 << 22) | ((high_instruction & 0x3FF) << 12) | ((low_instruction & 0x7FE) << 1);
+			imm32 = s ? (x | (0xFFFFFFFF << 25)) : x;
+			value = pc + imm32;
+            LOGI("blx_thumb32 : value : %x",value);
+		}
+		else if (type == BL_THUMB32) {
+            LOGI("BL_THUMB32");
+			x = (s << 24) | (i1 << 23) | (i2 << 22) | ((high_instruction & 0x3FF) << 12) | ((low_instruction & 0x7FF) << 1);
+			imm32 = s ? (x | (0xFFFFFFFF << 25)) : x;
+			value = pc + imm32 + 1;
+		}
+		else if (type == B1_THUMB32) {
+            LOGI("B1_THUMB32");
+			x = (s << 20) | (j2 << 19) | (j1 << 18) | ((high_instruction & 0x3F) << 12) | ((low_instruction & 0x7FF) << 1);
+			imm32 = s ? (x | (0xFFFFFFFF << 21)) : x;
+			value = pc + imm32 + 1;
+		}
+		else if (type == B2_THUMB32) {
+            LOGI("B2_THUMB32");
+			x = (s << 24) | (i1 << 23) | (i2 << 22) | ((high_instruction & 0x3FF) << 12) | ((low_instruction & 0x7FF) << 1);
+			imm32 = s ? (x | (0xFFFFFFFF << 25)) : x;
+			value = pc + imm32 + 1;
+		}
+		trampoline_instructions[idx++] = value & 0xFFFF;
+		trampoline_instructions[idx++] = value >> 16;
+		offset = idx;
+	}
+
+```
+
+这段代码比较长哈，我整理了一下(每行代表2 Bytes)：
+```
+ADD.W LR, PC, #9（仅BL,BLX）.1
+ADD.W LR, PC, #9（仅BL,BLX）.2 或 B PC, #2（仅B1）
+LDR.W PC, [PC].1
+LDR.W PC, [PC].2
+Value.1
+Value.2
+```
+
+1. 由于这一类指令都是跳转指令，因此，当然会出现最后四行本项目中大家已经非常熟悉的套路：用LDR.W来加载绝对地址数据进行跳转。我们的插桩也都是这么做的。
+2. 如果是BL,BLX指令的话，它俩是要保存返回地址的。于是就用ADD.W对LR寄存器进行操控。那么存进LR的返回地址是什么呢？是PC+9。也就是当前这条ADD.W指令所在地址+4（三级流水的PC领先当前thumb指令4 Bytes）然后+8（下方Value后的距离）的位置。而由于这里是Thumb模式，因此跳转目标执行完毕后需要对地址+1才能以Thumb模式跳转回来。因此是PC+9。
+3. 如果是B1的话，那就直接用B加载6个偏移之后，也就是PC+2的Value即可。
+4. 最后的Value是它们各自通过相对地址计算出的实际地址，部分为了Thumb模式还最后+1。感兴趣的朋友可以自己细看一下每条指令Value值的具体计算细节。
+
+
 #### TBB, TBH
+
+修复代码如下：
+```c
+
+```
 
 #### ADR, LDR
 
