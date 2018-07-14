@@ -248,12 +248,40 @@ ARM32下的其它指令无需修复，直接在备份代码中使用即可。
 
 #### MOV, ADR, LDR
 
-#### CB
+核心修复代码如下：
+```c
+	trampoline_instructions[0] = 0x4800 | (r << 8);	// LDR Rd, [PC]
+	trampoline_instructions[1] = 0xE001;	// B PC, #2
+	trampoline_instructions[2] = value & 0xFFFF;
+	trampoline_instructions[3] = value >> 16;
+```
+
+这三条都是把PC相关的值存入一个寄存器中。因此步骤很明确：
+
+1. 用LDR命令把下方隔着2 Bytes的存着实际原本PC相关的值Value存入目标寄存器Rd中即可。
+2. 用B命令跳6 Bytes到Value下方继续执行接下去的命令。
+
+#### CBZ, CBNZ
+
+核心修复代码如下：
+```c
+	trampoline_instructions[0] = instruction & 0xFD07;
+	trampoline_instructions[1] = 0xE003;	// B PC, #6
+
+	trampoline_instructions[2] = 0xF8DF;
+	trampoline_instructions[3] = 0xF000;	// LDR.W PC, [PC]
+
+	trampoline_instructions[4] = value & 0xFFFF;
+	trampoline_instructions[5] = value >> 16;
+```
+
+1. 将原本CBZ/CBNZ的参数清空，清空后参数为4（即PC+4）。例如：`CBNZ R0, 10`变成`CBNZ R0, 4`,满足条件时会向下跳4 Bytes；不满足条件时会继续执行下一条指令。
+2. 如果不满足CB的条件，则继续执行`B PC, #6命令`，跨过下面8 Bytes，去执行第10 Byte的指令，即下一条备份指令的修复指令中去。
+3. 如果满足条件，会去执行`LDR.W PC, [PC]`指令，从而根据计算出的Value跳转到原本CB需要跳转去的地方。
 
 #### 其它指令
 
-Thumb模式下，需要把其它备份的Thumb16指令下方补一个NOP！为什么？因为上文中我们修复的Thumb指令中都是用Thumb32指令LDR.W PC XXX进行跳转的。而`Thumb32下涉及修改PC的指令一定要位于可以整除4的地址上`。因此，我们需要保证每个Thumb指令都被修复成可以整除4的大小，这样，修复时只要保证当前LDR.W要在当前正在修复的指令中的偏移可以整除4就行了。
-
+Thumb模式下，需要把其它备份的Thumb16指令下方补一个NOP！为什么？因为上文中我们修复的Thumb指令中都是用Thumb32指令LDR.W PC XXX进行跳转的。而`Thumb32下涉及修改PC的指令一定要位于可以整除4的地址上`。因此，我们需要保证每个Thumb指令都被修复成可以整除4的大小，这样以后修复时只要保证当前LDR.W要在当前正在修复的指令中的偏移可以整除4就行了。
 
 ## Thumb32
 
@@ -262,14 +290,6 @@ Thumb模式下，需要把其它备份的Thumb16指令下方补一个NOP！为�
 修复代码如下：
 ```c
 else if (type == BLX_THUMB32 || type == BL_THUMB32 || type == B1_THUMB32 || type == B2_THUMB32) {
-		uint32_t j1;
-		uint32_t j2;
-		uint32_t s;
-		uint32_t i1;
-		uint32_t i2;
-		uint32_t x;
-		uint32_t imm32;
-		uint32_t value;
 
 		j1 = (low_instruction & 0x2000) >> 13;
 		j2 = (low_instruction & 0x800) >> 11;
@@ -341,7 +361,40 @@ Value.2
 
 修复代码如下：
 ```c
+	trampoline_instructions[0] = 0xB400 | (1 << rx);	// PUSH {Rx}
 
+	trampoline_instructions[1] = 0x4805 | (r << 8);	// LDR Rr, [PC, #20]
+
+	trampoline_instructions[2] = 0x4600 | (rm << 3) | rx;	// MOV Rx, Rm
+
+	if (type == TBB_THUMB32) {
+        LOGI("TBB_THUMB32");
+		trampoline_instructions[3] = 0xEB00 | r;
+		trampoline_instructions[4] = 0x0000 | (rx << 8) | rx;	// ADD.W Rx, Rr, Rx
+
+		trampoline_instructions[5] = 0x7800 | (rx << 3) | rx; 	// LDRB Rx, [Rx]
+
+	}
+	else if (type == TBH_THUMB32) {
+         LOGI("TBH_THUMB32");
+		trampoline_instructions[3] = 0xEB00 | r;
+		trampoline_instructions[4] = 0x0040 | (rx << 8) | rx;	// ADD.W Rx, Rr, Rx, LSL #1
+
+		trampoline_instructions[5] = 0x8800 | (rx << 3) | rx; 	// LDRH Rx, [Rx]
+
+	}
+	trampoline_instructions[6] = 0xEB00 | r;
+	trampoline_instructions[7] = 0x0040 | (r << 8) | rx;	// ADD Rr, Rr, Rx, LSL #1
+
+	trampoline_instructions[8] = 0x3001 | (r << 8);	// ADD Rr, #1
+
+	trampoline_instructions[9] = 0xBC00 | (1 << rx);	// POP {Rx}
+
+	trampoline_instructions[10] = 0x4700 | (r << 3);	// BX Rr
+	
+	trampoline_instructions[11] = 0xBF00;
+	trampoline_instructions[12] = pc & 0xFFFF;
+	trampoline_instructions[13] = pc >> 16;
 ```
 
 #### ADR, LDR
