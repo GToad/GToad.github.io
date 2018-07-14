@@ -460,6 +460,10 @@ public class HookToast implements IXposedHookLoadPackage{
 }
 ```
 
+## 局限性思考
+
+
+
 ## 总结
 
 本项目最终形式为一个so库，它可以与任何一个能加载它的工具进行配合，达到Native Hook的效果。并且Hook的最小粒度单位是任意一条汇编指令，这在日常测试中作用很大。
