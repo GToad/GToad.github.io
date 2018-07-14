@@ -46,8 +46,51 @@ Thumb32指令主要可以分为如下几类：
 
 下面我来一一分析它们具体的修复方案。其中条件跳转指令先单独拿出来作为一个部分进行讲解。
 
-## 条件跳转
+## 条件跳转（以Thumb16为例）
 
+在ARM32、Thumb16、Thumb32中都是有条件跳转的指令的，本项目三套都修复了。下面来讲一下Thumb16下条件跳转的修复，因为三套指令的修复思路都是一样的。
+
+条件跳转指令的修复相比于其它种类的指令有一个明显恶心的地方，看下面两张图可以很明显看出来，先看第一张：
+
+![](/img/in-post/post-android-native-hook-practice/b_condition_fix_design_2.png)
+
+12 Bytes的备份代码与各自对应的修复代码自上而下一一对应，尾部再添加个跳转回原程序的LDR。这就是上文中设想的最标准的修复方式。然而当其中混入了一条条件跳转指令后：
+
+![](/img/in-post/post-android-native-hook-practice/b_condition_fix_design_1.png)
+
+我们发现按照原程序的顺序和逻辑去修复条件跳转指令的话，会导致条件跳转指令对应的修复指令（图中红色部分）不是完整的一部分，而且第二部分需要出现在返回原程序跳转的后面才能保持原来的程序逻辑。这时有两个问题：
+
+1. 图中X的值如何确定？我们是从上到下一条条修复备份指令然后拼接的，也就是说这条BLS指令下方的指令在修复它的时候还没被修复。这样这个X的值就无法确定？
+2. Thumb-2模式在备份时，12 Bytes最大是可能备份6条Thumb16指令的。也就是说，可能在备份指令中出现多条条件跳转指令，这时候会出现跳转嵌套，如下图：
+
+![](/img/in-post/post-android-native-hook-practice/b_condition_fix_design_3.png)
+
+为了解决第一个问题，本人先在Hook一开始的init函数中建立一个记录所有备份指令修复后长度的数组`pstInlineHook->backUpFixLengthList`，然后当修复条件跳转指令时，通过计算其后面修复指令的长度来得到X的值。这个方法一开始只是用来解决问题1的，当时还没想到问题2的情况。因为这个数组中看不出后面的指令是否存在其它条件跳转指令，所以最后的跳转嵌套时会出错。那第二个问题如何解决呢？本人开始意识到如果条件跳转指令要用这种”两段“式的修复方式的话，会使得之后的修复逻辑变得很复杂。但是按照原程序的执行逻辑顺序似乎又只能这么做...吗？不，第一次优化方案如下所示：
+
+![](/img/in-post/post-android-native-hook-practice/b_condition_fix_old_design_1.png)
+
+这个方案通过连续的三个跳转命令来缩小这个BXX结构，使其按照原来的逻辑跳转到符合条件的跳转指令去，然后再跳转一次。至此其实已经解决了当前遇到的“两段”式麻烦。但是最后本人又想到了一个新的优化方案：`逆向思维方案`，如下图：
+
+![](/img/in-post/post-android-native-hook-practice/b_condition_fix_new_design_1.png)
+
+图中可以看到，原来的BLS指令被转化为了BHI指令，也就是`小于等于`的跳转逻辑变成了`大于`。这样一来，原本跳转的目标逻辑现在就可以紧贴到BHI指令下面。从而使得条件跳转指令的修复代码也和其它指令一样，成为一个连续的代码段。并且BHI后面的参数在Thumb16中将固定为10。那么对于多条条件跳转指令来说呢？如下图：
+
+![](/img/in-post/post-android-native-hook-practice/b_condition_fix_new_design_2.png)
+
+从图中可以看出来，又回到了最初从上到下一一对应，末尾跳转的形式。而之前新增的`pstInlineHook->backUpFixLengthList`数组依然保留了，因为当跳转的目标地址依然在备份代码范围内时需要用到它，下一部分中将会介绍。
+
+#### 跳转目标在备份代码中
+
+上文提到，如果我们备份代码中的跳转指令依然是跳到备份代码中呢？虽然我们的备份代码很短，但现实测试中的确遇到了这样的场景。出现了B 2的情况，可能是由于部分编译器把这个作为NOP指令吧。因此我们需要解决一下。
+
+1. 判断跳转的目标地址是否在备份代码范围内。
+2. 如果不在的话，一切照旧；在的话那就计算跳转目标在备份代码中的偏移OFFSET1。
+3. 利用Hook初始化时候统计的`pstInlineHook->backUpFixLengthList`数组和偏移OFFSET1来推算出在修复指令中的新偏移OFFSET2。
+4. 导入修复指令在内存中的地址ADDR1，然后用ADDR1+OFFSET2即可得到新的跳转地址Value。
+5. 根据Arm/Thumb模式来选择是否对Value+1。
+6. 用新的Value代替原本计算得到的绝对跳转地址。
+
+这个处理过程的一个关键点在于虽然我们还没有修复条件跳转指令之后的备份指令，但是它们修复后的长度是可以预测的，每种指令各自的修复指令长度是固定的。因此可以在在修复下方指令前预测出跳转偏移长度。
 
 
 
@@ -128,16 +171,21 @@ BLX指令需要额外关心跳转后thumb-2模式下的地址，由于thumb模�
 		rm = instruction & 0xF;
 		
 		for (r = 12; ; --r) { //找一个既不是rm,也不是rd的寄存器
+
 			if (r != rd && r != rm) {
 				break;
 			}
 		}
 		
 		trampoline_instructions[trampoline_pos++] = 0xE52D0004 | (r << 12);	// PUSH {Rr}
+
 		trampoline_instructions[trampoline_pos++] = 0xE59F0008 | (r << 12);	// LDR Rr, [PC, #8]
+
 		trampoline_instructions[trampoline_pos++] = (instruction & 0xFFF0FFFF) | (r << 16);
 		trampoline_instructions[trampoline_pos++] = 0xE49D0004 | (r << 12);	// POP {Rr}
-		trampoline_instructions[trampoline_pos++] = 0xE28FF000;	// ADD PC, PC MFK!这明明是ADD PC, PC, #0好么！
+
+		trampoline_instructions[trampoline_pos++] = 0xE28FF000;	// ADD PC, PC, #0
+
 		trampoline_instructions[trampoline_pos++] = pc;
 	}
 ```
@@ -189,7 +237,9 @@ ADD指令可能会涉及到PC，PC就是R15寄存器，用到它的时候它会�
 		}
 			
 		trampoline_instructions[trampoline_pos++] = 0xE51F0000 | (r << 12);	// LDR Rr, [PC]
+
 		trampoline_instructions[trampoline_pos++] = 0xE28FF000;	// ADD PC, PC
+
 		trampoline_instructions[trampoline_pos++] = value;
 	}
 ```
@@ -211,6 +261,7 @@ ARM32下的其它指令无需修复，直接在备份代码中使用即可。
 ```c
 	trampoline_instructions[idx++] = 0xF8DF;
 	trampoline_instructions[idx++] = 0xF000;	// LDR.W PC, [PC]
+
 	trampoline_instructions[idx++] = value & 0xFFFF;
 	trampoline_instructions[idx++] = value >> 16;
 ```
@@ -231,12 +282,18 @@ ARM32下的其它指令无需修复，直接在备份代码中使用即可。
 	}
 	
 	trampoline_instructions[0] = 0xB400 | (1 << r);	// PUSH {Rr}
+
 	trampoline_instructions[1] = 0x4802 | (r << 8);	// LDR Rr, [PC, #8]
+
 	trampoline_instructions[2] = (instruction & 0xFF87) | (r << 3); //我猜是adr Rd, Rr
+
 	trampoline_instructions[3] = 0xBC00 | (1 << r);	// POP {Rr}
+
 	trampoline_instructions[4] = 0xE002;	// B PC
+
 	trampoline_instructions[5] = 0xBF00;
 	trampoline_instructions[6] = pc & 0xFFFF;  //计算得到的Value实际值
+
 	trampoline_instructions[7] = pc >> 16;
 ```
 
@@ -251,7 +308,9 @@ ARM32下的其它指令无需修复，直接在备份代码中使用即可。
 核心修复代码如下：
 ```c
 	trampoline_instructions[0] = 0x4800 | (r << 8);	// LDR Rd, [PC]
+
 	trampoline_instructions[1] = 0xE001;	// B PC, #2
+
 	trampoline_instructions[2] = value & 0xFFFF;
 	trampoline_instructions[3] = value >> 16;
 ```
@@ -289,7 +348,7 @@ Thumb模式下，需要把其它备份的Thumb16指令下方补一个NOP！为�
 
 修复代码如下：
 ```c
-else if (type == BLX_THUMB32 || type == BL_THUMB32 || type == B1_THUMB32 || type == B2_THUMB32) {
+	else if (type == BLX_THUMB32 || type == BL_THUMB32 || type == B1_THUMB32 || type == B2_THUMB32) {
 
 		j1 = (low_instruction & 0x2000) >> 13;
 		j2 = (low_instruction & 0x800) >> 11;
@@ -301,14 +360,17 @@ else if (type == BLX_THUMB32 || type == BL_THUMB32 || type == B1_THUMB32 || type
             LOGI("BLX_THUMB32 BL_THUMB32");
 			trampoline_instructions[idx++] = 0xF20F;
 			trampoline_instructions[idx++] = 0x0E09;	// ADD.W LR, PC, #9
+
 		}
 		else if (type == B1_THUMB32) {
             LOGI("B1_THUMB32");
 			trampoline_instructions[idx++] = 0xD000 | ((high_instruction & 0x3C0) << 2);
 			trampoline_instructions[idx++] = 0xE003;	// B PC, #6
+
 		}
 		trampoline_instructions[idx++] = 0xF8DF;
 		trampoline_instructions[idx++] = 0xF000;	// LDR.W PC, [PC]
+
 		if (type == BLX_THUMB32) {
             LOGI("BLX_THUMB32");
 			x = (s << 24) | (i1 << 23) | (i2 << 22) | ((high_instruction & 0x3FF) << 12) | ((low_instruction & 0x7FE) << 1);
@@ -391,13 +453,35 @@ Value.2
 	trampoline_instructions[9] = 0xBC00 | (1 << rx);	// POP {Rx}
 
 	trampoline_instructions[10] = 0x4700 | (r << 3);	// BX Rr
-	
+
 	trampoline_instructions[11] = 0xBF00;
 	trampoline_instructions[12] = pc & 0xFFFF;
 	trampoline_instructions[13] = pc >> 16;
 ```
 
+这两条指令是查表跳转指令，类似于switch逻辑。
+1. R0-R7中取一个Rx寄存器，它不能是原本命令中已经用到的Rm,Rr寄存器，把它的值PUSH到栈上保存起来。
+2. TBB下，表中偏移计算为：offset=Rm+[原本的PC+4];TBH下则为：offset=2*Rm+[原本的PC+4]。
+3. 根据计算出的偏移和原本的PC去取值放入Rr中。
+4. 把Rx的值从栈中POP出来。
+5. 由于是Thumb模式，于是对Rr+1后再用BX进行跳转。
+
 #### ADR, LDR
+
+核心修复代码如下：
+```c
+	trampoline_instructions[0] = 0x4800 | (r << 8);	// LDR Rd, [PC]
+
+	trampoline_instructions[1] = 0xE001;	// B PC, #2
+
+	trampoline_instructions[2] = value & 0xFFFF;
+	trampoline_instructions[3] = value >> 16;
+```
+
+这三条都是把PC相关的值存入一个寄存器中。因此步骤很明确：
+
+1. 用LDR命令把下方隔着2 Bytes的存着实际原本PC相关的值Value存入目标寄存器Rd中即可。
+2. 用B命令跳6 Bytes到Value下方继续执行接下去的命令。
 
 #### 其它指令
 
