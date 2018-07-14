@@ -73,7 +73,7 @@ Thumb32指令主要可以分为如下几类：
 
 ![](/img/in-post/post-android-native-hook-practice/b_condition_fix_new_design_1.png)
 
-图中可以看到，原来的BLS指令被转化为了BHI指令，也就是`小于等于`的跳转逻辑变成了`大于`。这样一来，原本跳转的目标逻辑现在就可以紧贴到BHI指令下面。从而使得条件跳转指令的修复代码也和其它指令一样，成为一个连续的代码段。并且BHI后面的参数在Thumb16中将固定为10。那么对于多条条件跳转指令来说呢？如下图：
+图中可以看到，原来的BLS指令被转化为了BHI指令，也就是`小于等于`的跳转逻辑变成了`大于`。这样一来，原本跳转的目标逻辑现在就可以紧贴到BHI指令下面。从而使得条件跳转指令的修复代码也和其它指令一样，成为一个连续的代码段。并且BHI后面的参数在Thumb16中将固定为12。那么对于多条条件跳转指令来说呢？如下图：
 
 ![](/img/in-post/post-android-native-hook-practice/b_condition_fix_new_design_2.png)
 
