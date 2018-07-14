@@ -64,17 +64,27 @@ Thumb32指令主要可以分为如下几类：
 		uint32_t value;
 
 		if (type == BLX_ARM || type == BL_ARM) {
-			trampoline_instructions[trampoline_pos++] = 0xE28FE004;	// ADD LR, PC, #4
+			// ADD LR, PC, #4
+
+			trampoline_instructions[trampoline_pos++] = 0xE28FE004;	
 		}
-		trampoline_instructions[trampoline_pos++] = 0xE51FF004;  	// LDR PC, [PC, #-4]
+		// LDR PC, [PC, #-4]
+
+		trampoline_instructions[trampoline_pos++] = 0xE51FF004;  	
 		if (type == BLX_ARM) {
-			x = ((instruction & 0xFFFFFF) << 2) | ((instruction & 0x1000000) >> 23); //BLX_ARM
+			//BLX_ARM
+
+			x = ((instruction & 0xFFFFFF) << 2) | ((instruction & 0x1000000) >> 23); 
 		}
 		else if (type == BL_ARM || type == B_ARM) {
-			x = (instruction & 0xFFFFFF) << 2;                                       //BL_ARM B_ARM
+			//BL_ARM B_ARM
+
+			x = (instruction & 0xFFFFFF) << 2;                                       
 		}
 		else {
-			x = 0;                                                                   //BX_ARM
+			//BX_ARM
+			
+			x = 0;                                                                   
 		}
 		
 		top_bit = x >> 25;
