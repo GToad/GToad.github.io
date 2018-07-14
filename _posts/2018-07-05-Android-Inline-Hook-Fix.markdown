@@ -69,7 +69,7 @@ Thumb32指令主要可以分为如下几类：
 
 ![](/img/in-post/post-android-native-hook-practice/b_condition_fix_old_design_1.png)
 
-这个方案通过连续的三个跳转命令来缩小这个BXX结构，使其按照原来的逻辑跳转到符合条件的跳转指令去，然后再跳转一次。至此其实已经解决了当前遇到的“两段”式麻烦。但是最后本人又想到了一个新的优化方案：`逆向思维方案`，如下图：
+这个方案通过连续的三个跳转命令来缩小这个BXX结构，使其按照原来的逻辑跳转到符合条件的跳转指令去，然后再跳转一次。至此其实已经解决了当前遇到的“两段”式麻烦。但是最后本人又想到了一个新的优化方案：`逆向思维方案`，可以简化跳转逻辑并在Arm32和Thumb32下减少一条跳转指令的空间（Thumb16下由于需要补NOP所以没有减小空间占用），如下图：
 
 ![](/img/in-post/post-android-native-hook-practice/b_condition_fix_new_design_1.png)
 
