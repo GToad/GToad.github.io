@@ -28,7 +28,7 @@ tags:
 1. PLT Hook
 2. Inline Hook
 
-这两种技术路线本人都实践了一下，关于它们的对比，我在[《Android Native Hook技术路线概述》](/2017/06/24/Android-Native-Hook/)中有介绍，所以这里就不多说了。最终，我用了`Inline Hook`来做这个项目。
+这两种技术路线本人都实践了一下，关于它们的对比，我在[《Android Native Hook技术路线概述》](/2018/07/05/Android-Native-Hook/)中有介绍，所以这里就不多说了。最终，我用了`Inline Hook`来做这个项目。
 
 
 ## 目标效果
@@ -324,7 +324,7 @@ HOOK_ADDR + X
 
 ![](/img/in-post/post-android-native-hook-practice/b_condition_fix_new_design_2.png)
 
-从图中可以看出来，又回到了最初从上到下一一对应，末尾跳转的形式。而之前新增的`pstInlineHook->backUpFixLengthList`数组依然保留了，因为当跳转的目标地址依然在备份代码范围内时需要用到它，《Android Inline Hook中的指令修复》中会讲解，此处不再赘述。
+从图中可以看出来，又回到了最初从上到下一一对应，末尾跳转的形式。而之前新增的`pstInlineHook->backUpFixLengthList`数组依然保留了，因为当跳转的目标地址依然在备份代码范围内时需要用到它，[《Android Inline Hook中的指令修复》](/2018/07/13/Android-Inline-Hook-Fix/)中会讲解，此处不再赘述。
 
 
 ## 使用说明（以Xposed为例）
