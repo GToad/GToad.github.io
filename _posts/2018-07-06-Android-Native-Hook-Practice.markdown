@@ -28,11 +28,11 @@ tags:
 1. PLT Hook
 2. Inline Hook
 
-这两种技术路线本人都实践了一下，关于它们的对比，我在[《Android Native Hook技术路线概述》](/2018/07/05/Android-Native-Hook/)中有介绍，所以这里就不多说了。最终，我用了`Inline Hook`来做这个项目。
+这两种技术路线本人都实践了一下，关于它们的对比，我在[《Android Native Hook技术路线概述》](https://gtoad.github.io/2018/07/05/Android-Native-Hook/)中有介绍，所以这里就不多说了。最终，我用了`Inline Hook`来做这个项目。
 
 本文篇幅已经较长，因此写了一些独立的学习笔记来对其中的细节问题进行解释：
-1. [《Android Inline Hook中的指令修复》](/2018/07/13/Android-Inline-Hook-Fix/)
-2. [《Android Native Hook技术路线概述》](/2018/07/05/Android-Native-Hook/)
+1. [《Android Inline Hook中的指令修复》](https://gtoad.github.io/2018/07/13/Android-Inline-Hook-Fix/)
+2. [《Android Native Hook技术路线概述》](https://gtoad.github.io/2018/07/05/Android-Native-Hook/)
 3. 项目仓库（代码优化ing...）
 
 
@@ -266,7 +266,7 @@ HOOK_ADDR + 8
 
 ## 指令修复（概述）
 
-`注：本部分内容较多且相关代码占了几乎本项目开发的一半时间，故此处仅给出概述，本人之后为这部分内容独立写一篇文章[《Android Inline Hook中的指令修复》](/2018/07/13/Android-Inline-Hook-Fix/)来详细介绍以方便读者更好地学习这方面内容。`
+`注：本部分内容较多且相关代码占了几乎本项目开发的一半时间，故此处仅给出概述，本人之后为这部分内容独立写一篇文章[《Android Inline Hook中的指令修复》](https://gtoad.github.io/2018/07/13/Android-Inline-Hook-Fix/)来详细介绍以方便读者更好地学习这方面内容。`
 
 在上文的处理中，我们很好地保存并恢复了寄存器原本的状态。那么，原本目标程序的汇编指令真的是在它原有的状态下执行的吗？依然不是。虽然寄存器的确一模一样，但是那几条被备份的指令是被移动到了另一个地址上。这样当执行它们的时候PC寄存器的值就改变了。因此，如果这条指令的操作如果涉及到PC的值，那这条指令的执行效果就很可能和原来不一样。所以，我们需要对备份的指令进行修复。在实际修复过程中，本人发现还有些指令也受影响，有如下几种：
 
@@ -275,7 +275,7 @@ HOOK_ADDR + 8
 
 第一种我们已经解释过了，而第二种则是由于我们备份区域中的代码已经被替换了，如果有跳转到这个区域的指令，那接下来执行的就不试原来这个位置的指令了。我们可以再把第二类细分成两类：`从备份区域跳转到备份区域的指令`和`从备份区域外跳转到备份区域的指令`，前者本人通过计算目标代码在备份区域中的绝对地址来代替原来的目标地址从而修复，而后者由于不知道整个程序中到底有多少条指令会跳转过来，所以无法修复。不过个人认为这后者遇到的概率极小极小。因为我们使用Native Hook前肯定已经逆向分析过了，在IDA这类软件中看到自己即将备份的区域里被打上了类似"loc_XXXXXX"的标签时，一定会小心的。
 
-这部分的修复操作参考了`ele7enxxh`大神的博客和项目，里面修复了许多可能出现的PC相关指令的情况，从中的确启发了许多！但依然有点BUG,主要集中在BNE BEQ这些条件跳转的指令修复上，以及CPU模式切换上容易忽略一些地址+1的问题。本项目中对这些本人已经遇到的BUG进行了修复。具体PC相关指令的修复细节本人之后会独立写一篇[《Android Inline Hook中的指令修复》](/2018/07/13/Android-Inline-Hook-Fix/)，其中也会提到我之前说的那些BUG的修复与改进。本人在此中只说一下本项目中是如何处理这个环节的：
+这部分的修复操作参考了`ele7enxxh`大神的博客和项目，里面修复了许多可能出现的PC相关指令的情况，从中的确启发了许多！但依然有点BUG,主要集中在BNE BEQ这些条件跳转的指令修复上，以及CPU模式切换上容易忽略一些地址+1的问题。本项目中对这些本人已经遇到的BUG进行了修复。具体PC相关指令的修复细节本人之后会独立写一篇[《Android Inline Hook中的指令修复》](https://gtoad.github.io/2018/07/13/Android-Inline-Hook-Fix/)，其中也会提到我之前说的那些BUG的修复与改进。本人在此中只说一下本项目中是如何处理这个环节的：
 
 1. 遍历备份的指令，arm32自然是一个个4 bytes的指令取走去处理就好，thumb-2则需要判断指令是thumb16还是thumb32，把它们一条条取出来处理。
 2. 对每条指令进行PC修复，根据Hook目标地址和该指令在备份代码里的偏移以及CPU的三级流水作用来计算出这条指令当时原本PC的值。从而用这个计算出来的值来代替这个指令中对当前PC的计算。
@@ -329,7 +329,7 @@ HOOK_ADDR + X
 
 ![](/img/in-post/post-android-native-hook-practice/b_condition_fix_new_design_2.png)
 
-从图中可以看出来，又回到了最初从上到下一一对应，末尾跳转的形式。而之前新增的`pstInlineHook->backUpFixLengthList`数组依然保留了，因为当跳转的目标地址依然在备份代码范围内时需要用到它，[《Android Inline Hook中的指令修复》](/2018/07/13/Android-Inline-Hook-Fix/)中会讲解，此处不再赘述。
+从图中可以看出来，又回到了最初从上到下一一对应，末尾跳转的形式。而之前新增的`pstInlineHook->backUpFixLengthList`数组依然保留了，因为当跳转的目标地址依然在备份代码范围内时需要用到它，[《Android Inline Hook中的指令修复》](https://gtoad.github.io/2018/07/13/Android-Inline-Hook-Fix/)中会讲解，此处不再赘述。
 
 
 ## 使用说明（以Xposed为例）

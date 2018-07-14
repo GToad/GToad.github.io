@@ -63,7 +63,7 @@ tags:
 
 ![](/img/in-post/post-android-native-hook-practice/armhook.png)
 
-这张图是一张arm下最基本的hook流程，如果客官对于Inline Hook有着进一步的学习需求的话，请看一下本人的另一篇文章[《Android Native Hook工具实践》](/2018/07/06/Android-Native-Hook-Practice/)吧~。从上图中可以看出主要有如下几个步骤：
+这张图是一张arm下最基本的hook流程，如果客官对于Inline Hook有着进一步的学习需求的话，请看一下本人的另一篇文章[《Android Native Hook工具实践》](https://gtoad.github.io/2018/07/06/Android-Native-Hook-Practice/)吧~。从上图中可以看出主要有如下几个步骤：
 
 1. 在想要Hook的目标代码处备份下面的几条指令，然后插入跳转指令，把程序流程转移到一个stub段上去。
 2. 在stub代码段上先把所有寄存器的状态保存好，并调用用户自定义的Hook功能函数，然后把所有寄存器的状态恢复并跳转到备份代码处。
