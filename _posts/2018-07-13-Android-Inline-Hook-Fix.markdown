@@ -17,6 +17,7 @@ tags:
 ---
 
 > 本文是另一篇[《Android Native Hook工具实践》](https://gtoad.github.io/2018/07/06/Android-Native-Hook-Practice/)的一份补充文章，本人建议各位学习者先去看该篇主文以了解本文的需求背景。本文将会对该文中`指令修复`部分的技术细节进行阐述。本文的部分源码来自于ele7enxxh大神的项目，由于大神的技术博客里解释省略了较多细节，所以出于学习的目的，本人也会一点一点慢慢啃。同时由于该库并不完善，因此本文将补充该库没考虑到的一些修复指令方案，并且对许多特殊状况和Bug也尽力解决。
+
 > 本文为作者本人原创，转载请注明出处：[GToad Blog](https://gtoad.github.io/2018/07/13/Android-Inline-Hook-Fix/)
 
 ## 前言
