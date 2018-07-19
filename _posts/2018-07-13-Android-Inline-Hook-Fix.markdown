@@ -4,7 +4,7 @@ title:      "Android Inline Hook中的指令修复详解"
 subtitle:   ""
 date:       2018-07-13 12:00:00
 author:     "GToad"
-header-img: "img/post-bg-2017.jpg"
+header-img: "img/android-one.png"
 catalog: true
 tags:
     - Android
