@@ -49,7 +49,7 @@ kramdown:
 
 
 # Disqus settings
-disqus_username: GToad
+#disqus_username: GToad
 
 # Netease settings
 netease_comment: false
