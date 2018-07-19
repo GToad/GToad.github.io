@@ -83,7 +83,9 @@ tags:
 
 ![](/img/in-post/post-android-native-hook-practice/armhook.png)
 
-第一步，根据/proc/self/map中目标so库的内存加载地址与目标Hook地址的偏移计算出实际需要Hook的内存地址。将目标地址处的2条ARM32汇编代码（8 Bytes）进行备份，然后用一条LDR PC指令和一个地址（共计8 Bytes）替换它们。这样就能（以arm模式）将PC指向图中第二部分stub代码所在的位置。由于使用的是LDR而不是BLX，所以lr寄存器不受影响。关键代码如下：
+###### Arm 第1步
+
+根据/proc/self/map中目标so库的内存加载地址与目标Hook地址的偏移计算出实际需要Hook的内存地址。将目标地址处的2条ARM32汇编代码（8 Bytes）进行备份，然后用一条LDR PC指令和一个地址（共计8 Bytes）替换它们。这样就能（以arm模式）将PC指向图中第二部分stub代码所在的位置。由于使用的是LDR而不是BLX，所以lr寄存器不受影响。关键代码如下：
 
 ```c
 //LDR PC, [PC, #-4]对应的机器码为：0xE51FF004
@@ -94,7 +96,9 @@ BYTE szLdrPCOpcodes[8] = {0x04, 0xF0, 0x1F, 0xE5};
 memcpy(szLdrPCOpcodes + 4, &pJumpAddress, 4);
 ```
 
-第二步，构造stub代码。构造思路是先保存当前全部的寄存器状态到栈中。然后用BLX命令（以arm模式）跳转去执行用户自定义的Hook后的函数。执行完成后，从栈恢复所有的寄存器状态。最后（以arm模式）跳转至第三部分备份代码处。关键代码如下：
+###### Arm 第2步
+
+构造stub代码。构造思路是先保存当前全部的寄存器状态到栈中。然后用BLX命令（以arm模式）跳转去执行用户自定义的Hook后的函数。执行完成后，从栈恢复所有的寄存器状态。最后（以arm模式）跳转至第三部分备份代码处。关键代码如下：
 
 ```
 _shellcode_start_s:
@@ -117,7 +121,9 @@ _shellcode_start_s:
     ldr     pc, _old_function_addr_s
 ```
 
-第三步，构造备份代码。构造思路是先执行之前备份的2条arm32代码（共计8 Btyes），然后用LDR指令跳转回Hook地址+8bytes的地址处继续执行。此处先不考虑PC修复，下文会说明。构造出来的汇编代码如下：
+###### Arm 第3步
+
+构造备份代码。构造思路是先执行之前备份的2条arm32代码（共计8 Btyes），然后用LDR指令跳转回Hook地址+8bytes的地址处继续执行。此处先不考虑PC修复，下文会说明。构造出来的汇编代码如下：
 
 ```
 备份代码1
@@ -133,6 +139,8 @@ HOOK_ADDR+8
 ![](/img/in-post/post-android-native-hook-practice/thumbhook.png)
 
 `虽然这部分内容与arm32很相似，但由于细节坑较多，所以我认为下文重新梳理详细思路是必要的。`
+
+###### Thumb-2 第1步
 
 第一步，根据/proc/self/map中目标so库的内存加载地址与目标Hook地址的偏移计算出实际需要Hook的内存地址。将目标地址处的X Bytes的thumb汇编代码进行备份。然后用一条LDR.W PC指令和一个地址（共计8 Bytes）替换它们。这样就能（以arm模式）将PC指向图中第二部分stub代码所在的位置。由于使用的是LDR.W而不是BLX，所以lr寄存器不受影响。
 
@@ -208,7 +216,9 @@ bool BuildThumbJumpCode(void *pCurAddress , void *pJumpAddress)
 
 ```
 
-第二步，构造stub代码。构造思路是先保存当前全部的寄存器状态到栈中。然后用BLX命令（以arm模式）跳转去执行用户自定义的Hook后的函数。执行完成后，从栈恢复所有的寄存器状态。最后（以thumb模式）跳转至第三部分备份代码处。
+###### Thumb-2 第2步
+
+构造stub代码。构造思路是先保存当前全部的寄存器状态到栈中。然后用BLX命令（以arm模式）跳转去执行用户自定义的Hook后的函数。执行完成后，从栈恢复所有的寄存器状态。最后（以thumb模式）跳转至第三部分备份代码处。
 
 `细节1`：为什么跳转到第三部分要用thumb模式？因为第三部分中是含有备份的thumb代码的，而同一个顺序执行且没有内部跳转的代码段是无法改变执行模式的。因此，整个第三部分的汇编指令都需要跟着备份代码用thumb指令来编写。
 
@@ -252,7 +262,7 @@ _shellcode_start_s_thumb:
     ldr     pc, _old_function_addr_s_thumb
 ```
 
-###### Thumb-2方案第三步
+###### Thumb-2 第3步
 
 第三步，构造备份代码。构造思路是先执行之前备份的X Bytes的thumb-2代码，然后用LDR.W指令来跳转回Hook地址+Xbytes的地址处继续执行。此处先不考虑PC修复，下文会说明。
 
