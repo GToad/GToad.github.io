@@ -218,7 +218,7 @@ bool BuildThumbJumpCode(void *pCurAddress , void *pJumpAddress)
 
 `细节4`：那条bic指令是用来清除`_old_function_addr_s_thumb`变量的最低位的。因为如果该Hook目标会被多次调用，那每次这个`_old_function_addr_s_thumb`都会被+1。第一次没有问题，成功变成了thumb模式，而第二次会以arm模式下偏2 bytes跳转，之后偏差越来越大，模式交叉出现。因此，本人使用bic指令来清除每次Hook调用后的地址+1效果。
 
-`细节5`：用户自定义的Hook功能函数是有一个参数的`pt_regs *regs`，这个参数就是用`mov r0, sp`传递的，此时r0指向的这个结构就是Hook跳转前寄存器的状态。不会受到stub或者Hook功能函数的影响。
+`细节5`：用户自定义的Hook功能函数是有一个参数的`pt_regs *regs`，这个参数就是用`mov r0, sp`传递的，此时r0指向的这个结构就是Hook跳转前寄存器的状态。不会受到stub或者Hook功能函数的影响。使用时`regs->uregs[0]`就是R0寄存器，`regs->uregs[6]`就是R6寄存器，`regs->uregs[12]`就是R12寄存器，`regs->uregs[13]`就是SP寄存器，`regs->uregs[14]`就是LR寄存器，`regs->uregs[15]`就是PSR寄存器（而不是PC寄存器，PC寄存器不备份）。
 
 关键代码如下：
 
