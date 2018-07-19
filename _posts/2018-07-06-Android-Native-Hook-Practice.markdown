@@ -33,8 +33,8 @@ tags:
 这两种技术路线本人都实践了一下，关于它们的对比，我在[《Android Native Hook技术路线概述》](https://gtoad.github.io/2018/07/05/Android-Native-Hook/)中有介绍，所以这里就不多说了。最终，我用了`Inline Hook`来做这个项目。
 
 本文篇幅已经较长，因此写了一些独立的学习笔记来对其中的细节问题进行解释：
-1. [《Android Inline Hook中的指令修复》](https://gtoad.github.io/2018/07/13/Android-Inline-Hook-Fix/)
-2. [《Android Native Hook技术路线概述》](https://gtoad.github.io/2018/07/05/Android-Native-Hook/)
+1. [《Android Native Hook技术路线概述》](https://gtoad.github.io/2018/07/05/Android-Native-Hook/)
+2. [《Android Inline Hook中的指令修复》](https://gtoad.github.io/2018/07/13/Android-Inline-Hook-Fix/)
 3. 项目仓库（代码优化ing...）
 
 
