@@ -220,6 +220,10 @@ bool BuildThumbJumpCode(void *pCurAddress , void *pJumpAddress)
 
 `细节5`：用户自定义的Hook功能函数是有一个参数的`pt_regs *regs`，这个参数就是用`mov r0, sp`传递的，此时r0指向的这个结构就是Hook跳转前寄存器的状态。不会受到stub或者Hook功能函数的影响。使用时`regs->uregs[0]`就是R0寄存器，`regs->uregs[6]`就是R6寄存器，`regs->uregs[12]`就是R12寄存器，`regs->uregs[13]`就是SP寄存器，`regs->uregs[14]`就是LR寄存器，`regs->uregs[15]`就是PSR寄存器（而不是PC寄存器，PC寄存器不备份）。
 
+`细节6`：保存寄存器的细节是怎么样的？栈上从高地址到低地址依次为：CPSR,LR,SP,R12,...,R0。并且在Thumb-2方案下，CPSR中的T位会先保存为第二部分所需的0，而不是原来的thumb模式下的T:1，在跳转到第三部分时，会重新把T位变成1的。具体如下图所示，图中的CPSR的第6个bit就是T标志，因此原本是0x20030030，保存在栈上的是0x20030010，最后进入第三部分时，依然能够恢复成0x20030030。
+
+![](/img/in-post/post-android-native-hook-practice/register_save.png)
+
 关键代码如下：
 
 ```
