@@ -495,12 +495,17 @@ public class HookToast implements IXposedHookLoadPackage{
 真的非常感谢腾讯游戏安全实验室和ele7enxxh大牛的开源项目为本项目提供的参考。
 
 
-##文末说明
+## 文末说明
 
 由于本项目的初衷是为了满足作者自身测试需求才做的，所以关于文中的一些解释与需求可能与别的同学的理解有偏差，这很正常。此处补充解释一下：
 
 1. 关于目前公开的Android Native Hook工具寥寥无几这一点我补充解释一下：唯一一个公开且接近于Java Hook的Xposed那样好用的工具可能就只是Cydia Substrate了。但是该项目已经好几年没更新，并且只支持到安卓5.0以前。还有一个不错的Native Hook工具是Frida，但是它的运行原理涉及调试，因此遇到反调试会相当棘手。由于本人反调试遇到的情况较多，所以Frida不怎么用。
 
 2. 为什么不在thumb-2模式设计时都使用thumb？因为第二部分写汇编的时候用arm写起来容易，而且文中解释过无论跳转前是arm还是thumb模式，跳转后想要用thumb模式都需要给地址+1，所以当然能用arm的地方就用arm，这样方便。并且如果有多个不同模式的Hook目标，这时用户自定义的Hook函数只能统一编译成同一个模式，所以选择ARM模式。
+
+## 参考
+
+[腾讯游戏安全实验室](http://gslab.qq.com/portal.php?mod=view&aid=168)
+[ele7enxxh的博客](http://ele7enxxh.com/Android-Arm-Inline-Hook.html)
 
 
