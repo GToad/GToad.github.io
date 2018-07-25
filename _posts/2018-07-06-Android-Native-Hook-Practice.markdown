@@ -35,7 +35,7 @@ tags:
 本文篇幅已经较长，因此写了一些独立的学习笔记来对其中的细节问题进行解释：
 1. [《Android Native Hook技术路线概述》](https://gtoad.github.io/2018/07/05/Android-Native-Hook/)
 2. [《Android Inline Hook中的指令修复》](https://gtoad.github.io/2018/07/13/Android-Inline-Hook-Fix/)
-3. 项目仓库（代码优化ing...）
+3. 项目仓库（公开版代码优化ing...）
 
 
 ## 目标效果
@@ -65,7 +65,7 @@ tags:
 
 2. 本文采用的是第二种方法。该方法网络资料中使用较少。它是利用了`__attribute__((constructor))`属性。使用这个constructor属性编译的普通ELF文件被加载入内存后，最先执行的不是main函数，而是具有该属性的函数。同样，本项目中利用此属性编译出来的so文件被加载后，尽管so里没有main函数，但是依然能优先执行，且其执行甚至在JniOnload之前。于是逆向分析了一下编译出来的so库文件。发现具有`constructor`属性的函数会被登记在.init_array中。（相对应的`destructor`属性会在ELF卸载时被自动调用，这些函数会被登记入.fini_array）
 
-![](/img/in-post/post-android-native-hook-practice/init_array.png)
+![](https://gtoad.github.io/img/in-post/post-android-native-hook-practice/init_array.png)
 
 值得一提的是，`constructor`属性的函数是可以有多个的，对其执行顺序有要求的同学可以通过在代码中对这些函数声明进行排序从而改变其在.init_array中的顺序，二者是按顺序对应的。而执行时，会从.init_array中自上而下地执行这些函数。所以图中的自动优先执行顺序为：main5->main3->main1->main2->main4。并且后面会说到，从+1可以看出这些函数是thumb模式编译的。
 
@@ -81,7 +81,7 @@ tags:
 
 现在我们的代码可以在一开始就执行了，那该如何设计这套Inline Hook方案呢？目标是thumb-2和arm指令集下是两套相似的方案。我参考了腾讯游戏安全实验室的一篇教程，其中给出了一个初步的armv7指令集下的Native Hook方案，整理后如下图：
 
-![](/img/in-post/post-android-native-hook-practice/armhook.png)
+![](https://gtoad.github.io/img/in-post/post-android-native-hook-practice/armhook.png)
 
 ###### Arm 第1步
 
@@ -136,7 +136,7 @@ HOOK_ADDR+8
 
 以上是本工具在arm指令集上的Native Hook基本方案。那么在thumb-2指令集上该怎么办呢？我决定使用多模式切换来实现(文末解释2)，整理后如下图：
 
-![](/img/in-post/post-android-native-hook-practice/thumbhook.png)
+![](https://gtoad.github.io/img/in-post/post-android-native-hook-practice/thumbhook.png)
 
 `虽然这部分内容与arm32很相似，但由于细节坑较多，所以我认为下文重新梳理详细思路是必要的。`
 
@@ -146,7 +146,7 @@ HOOK_ADDR+8
 
 `细节1`：为什么说是X Bytes？参考了网上不少的资料，发现大部分代码中都简单地将arm模式设置为8 bytes的备份，thumb模式12 bytes的备份。对arm32来说很合理，因为2条arm32指令足矣，上文处理arm32时也是这么做的。而thumb-2模式则不一样，thumb-2模式是thumb16（2 bytes）与thumb32（4 bytes）指令混合使用。本人在实际测试中出现过2+2+2+2+2+4>12的情形，这种情况下，最后一条thumb32指令会被截断，从而在备份代码中执行了一条只有前半段的thumb32，而在4->1的返回后还要执行一个只有后半段的thumb32。因此，本项目最初在第一步备份代码前会检查最后第11和12byte是不是前半条thumb32，如果不是，则备份12 byte。如果是的话，就备份10 byte。但是后来发现也不行，因为Thumb32指令的低16位可能会被误判为新Thumb32指令的开头。因此，最终通过统计末尾连续“疑似”Thumb32高16位的数量，当数量为单数则备份10 bytes，数量为偶数则备份12 bytes。这么做的原因如下：如果这个16位符合Thumb32指令的高16位格式，那它肯定不是Thumb16，只可能是Thumb32的高16位或低16位。因为Thumb16是不会和Thumb32有歧义的。那么，当它前面的16位也是类似的“疑似”Thumb32的话，可能是它俩共同组成了一个Thumb32，也可能是它们一个是结尾一个是开头。所以，如果结尾出现1条疑似Thumb32，则说明这是一条截断的，出现2条疑似Thumb32，说明它俩是一整条，出现3条，说明前2条是一条thumb32，最后一条是被截断的前部分，依此类推。用下面这张图可能更容易理解，总之：`疑似Thumb32的2 Bytes可能是Thumb32高16位或Thumb32低16位，但不可能是Thumb16`:
 
-![](/img/in-post/post-android-native-hook-practice/12and10.png)
+![](https://gtoad.github.io/img/in-post/post-android-native-hook-practice/12and10.png)
 
 `细节2`：为什么Plan B是10 byte？我们需要插入的跳转是8 byte，但是thumb32中如果指令涉及修改PC的话，那么这条指令所在的地址一定要能整除4，否则程序会崩溃。我们的指令地址肯定都是能被2整除的，但是能被4整除是真的说不准。因此，当出现地址不能被4整除时，我们需要先补一个thumb16的NOP指令（2 bytes）。这样一来就需要2+8=10 Bytes了。尽管这时候选择14 Bytes也差不多，我也没有内存空间节省强迫症，但是选择这10 Bytes主要还是为了提醒一下大家这边补NOP的细节问题。
 关键代码如下：
@@ -232,7 +232,7 @@ bool BuildThumbJumpCode(void *pCurAddress , void *pJumpAddress)
 
 `细节6`：保存寄存器的细节是怎么样的？栈上从高地址到低地址依次为：CPSR,LR,SP,R12,...,R0。并且在Thumb-2方案下，CPSR中的T位会先保存为第二部分所需的0，而不是原来的thumb模式下的T:1，在跳转到第三部分时，会重新把T位变成1的。具体如下图所示，图中的CPSR的第6个bit就是T标志，因此原本是0x20030030，保存在栈上的是0x20030010，最后进入第三部分时，依然能够恢复成0x20030030。`图中R0从0x1变成了0x333只是该次APP测试中自定义的User’s Hook Stub Function中的处理内容：regs->uregs[0]=0x333;`
 
-![](/img/in-post/post-android-native-hook-practice/register_save.png)
+![](https://gtoad.github.io/img/in-post/post-android-native-hook-practice/register_save.png)
 
 关键代码如下：
 
@@ -278,7 +278,7 @@ _shellcode_start_s_thumb:
 备份代码3
 ......
 LDR.W PC, [PC, #0]
-HOOK_ADDR + 8
+HOOK_ADDR + X
 ```
 
 
@@ -322,30 +322,30 @@ HOOK_ADDR + X
 
 条件跳转指令的修复相比于其它种类的指令有一个明显恶心的地方，看下面两张图可以很明显看出来，先看第一张：
 
-![](/img/in-post/post-android-native-hook-practice/b_condition_fix_design_2.png)
+![](https://gtoad.github.io/img/in-post/post-android-native-hook-practice/b_condition_fix_design_2.png)
 
 12 Bytes的备份代码与各自对应的修复代码自上而下一一对应，尾部再添加个跳转回原程序的LDR。这就是上文中设想的最标准的修复方式。然而当其中混入了一条条件跳转指令后：
 
-![](/img/in-post/post-android-native-hook-practice/b_condition_fix_design_1.png)
+![](https://gtoad.github.io/img/in-post/post-android-native-hook-practice/b_condition_fix_design_1.png)
 
 我们发现按照原程序的顺序和逻辑去修复条件跳转指令的话，会导致条件跳转指令对应的修复指令（图中红色部分）不是完整的一部分，而且第二部分需要出现在返回原程序跳转的后面才能保持原来的程序逻辑。这时有两个问题：
 
 1. 图中X的值如何确定？我们是从上到下一条条修复备份指令然后拼接的，也就是说这条BLS指令下方的指令在修复它的时候还没被修复。这样这个X的值就无法确定？
 2. Thumb-2模式在备份时，12 Bytes最大是可能备份6条Thumb16指令的。也就是说，可能在备份指令中出现多条条件跳转指令，这时候会出现跳转嵌套，如下图：
 
-![](/img/in-post/post-android-native-hook-practice/b_condition_fix_design_3.png)
+![](https://gtoad.github.io/img/in-post/post-android-native-hook-practice/b_condition_fix_design_3.png)
 
 为了解决第一个问题，本人先在Hook一开始的init函数中建立一个记录所有备份指令修复后长度的数组`pstInlineHook->backUpFixLengthList`，然后当修复条件跳转指令时，通过计算其后面修复指令的长度来得到X的值。这个方法一开始只是用来解决问题1的，当时还没想到问题2的情况。因为这个数组中看不出后面的指令是否存在其它条件跳转指令，所以最后的跳转嵌套时会出错。那第二个问题如何解决呢？本人开始意识到如果条件跳转指令要用这种”两段“式的修复方式的话，会使得之后的修复逻辑变得很复杂。但是按照原程序的执行逻辑顺序似乎又只能这么做...吗？不，第一次优化方案如下所示：
 
-![](/img/in-post/post-android-native-hook-practice/b_condition_fix_old_design_1.png)
+![](https://gtoad.github.io/img/in-post/post-android-native-hook-practice/b_condition_fix_old_design_1.png)
 
 这个方案通过连续的三个跳转命令来缩小这个BXX结构，使其按照原来的逻辑跳转到符合条件的跳转指令去，然后再跳转一次。至此其实已经解决了当前遇到的“两段”式麻烦。但是最后本人又想到了一个新的优化方案：`逆向思维方案`，可以简化跳转逻辑并在Arm32和Thumb32下减少一条跳转指令的空间（Thumb16下由于需要补NOP所以没有减小空间占用），如下图：
 
-![](/img/in-post/post-android-native-hook-practice/b_condition_fix_new_design_1.png)
+![](https://gtoad.github.io/img/in-post/post-android-native-hook-practice/b_condition_fix_new_design_1.png)
 
 图中可以看到，原来的BLS指令被转化为了BHI指令，也就是`小于等于`的跳转逻辑变成了`大于`。这样一来，原本跳转的目标逻辑现在就可以紧贴到BHI指令下面。从而使得条件跳转指令的修复代码也和其它指令一样，成为一个连续的代码段。并且BHI后面的参数在Thumb16中将固定为12。那么对于多条条件跳转指令来说呢？如下图：
 
-![](/img/in-post/post-android-native-hook-practice/b_condition_fix_new_design_2.png)
+![](https://gtoad.github.io/img/in-post/post-android-native-hook-practice/b_condition_fix_new_design_2.png)
 
 从图中可以看出来，又回到了最初从上到下一一对应，末尾跳转的形式。而之前新增的`pstInlineHook->backUpFixLengthList`数组依然保留了，因为当跳转的目标地址依然在备份代码范围内时需要用到它，[《Android Inline Hook中的指令修复》](https://gtoad.github.io/2018/07/13/Android-Inline-Hook-Fix/)中会讲解，此处不再赘述。
 
