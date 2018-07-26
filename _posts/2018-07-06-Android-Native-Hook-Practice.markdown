@@ -66,7 +66,6 @@ tags:
 1. 利用JniOnload来自动执行。该函数是NDK中用户可以选择性自定义实现的函数。如果用户不实现，则系统默认使用NDK的版本为1.1。但是如果用户有定义这个函数，那Android VM就会在System.loadLibrary()加载so库时自动先执行这个函数来获得其返回的版本号。尽管该函数最终要返回的是NDK的版本号，但是其函数可以加入任意其它逻辑的代码，从而实现加载so时的自动执行。这样就能优先于所有其它被APP NDK调用的功能函数被调用，从而进行Hook。目前许多APP加固工具和APP初始化工作都会用此方法。
 2. 本文采用的是第二种方法。该方法网络资料中使用较少。它是利用了`__attribute__((constructor))`属性。使用这个constructor属性编译的普通ELF文件被加载入内存后，最先执行的不是main函数，而是具有该属性的函数。同样，本项目中利用此属性编译出来的so文件被加载后，尽管so里没有main函数，但是依然能优先执行，且其执行甚至在JniOnload之前。于是逆向分析了一下编译出来的so库文件。发现具有`constructor`属性的函数会被登记在.init_array中。（相对应的`destructor`属性会在ELF卸载时被自动调用，这些函数会被登记入.fini_array）
 
-
 ![](https://gtoad.github.io/img/in-post/post-android-native-hook-practice/init_array.png)
 
 值得一提的是，`constructor`属性的函数是可以有多个的，对其执行顺序有要求的同学可以通过在代码中对这些函数声明进行排序从而改变其在.init_array中的顺序，二者是按顺序对应的。而执行时，会从.init_array中自上而下地执行这些函数。所以图中的自动优先执行顺序为：main5->main3->main1->main2->main4。并且后面会说到，从+1可以看出这些函数是thumb模式编译的。
@@ -214,8 +213,6 @@ bool BuildThumbJumpCode(void *pCurAddress , void *pJumpAddress)
 
     ......
 }
-
-
 ```
 
 ###### Thumb-2 第2步
