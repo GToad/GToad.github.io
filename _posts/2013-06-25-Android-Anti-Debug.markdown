@@ -285,7 +285,10 @@ void my_sigtrap(int sig){
 
 其它方法可能依然更适合主线程/进程自己实现。本方法只是一个策略，实现可以千奇百怪，无典型代码。
 
-这里使用乌云以前某文章的样例代码：
+这里使用乌云以前某文章的样例代码和说明图：
+
+![](/img/in-post/post-android-anti-debug/wooyun-anti-debug-fork.png)
+
 ```c
 int pipefd[2];
 int childpid;
