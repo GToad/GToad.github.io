@@ -395,6 +395,8 @@ Java_com_sec_gtoad_antidebug_MainActivity_stringFromFork(
 
 每个方法都有一个按钮，对应一个JNI函数，读者可以通过点击不同的按钮来尝试调试不同的样例。当前`基于套路的检测`这个方法对应的`Trck`按钮还没想到比较好的样例展示方法，其它按钮效果如下：
 
+![](/img/in-post/post-android-anti-debug/example-apk.png)
+
 1. `TIME`按钮：基于时间的检测，未发现调试返回"Hello from time",发现调试返回"Debug from time"
 2. `FILE`按钮：基于文件的检测，未发现调试返回"Hello from file",发现调试返回"Debug from file"
 3. `VM`按钮：Dalvik虚拟机内部相关字段，未发现调试返回"Hello from vm",发现调试返回"Debug from vm"
