@@ -24,6 +24,8 @@ tags:
 
 通过在代码不同的地方获取时间值，从而可以求出这个过程中的执行时间。如果两个时间值相差过大，则说明中间的代码流程被调试了。因为调试者停下来一步步观察了这一段代码的执行情况，因此这部分代码的执行时间远远超出了普通状态的执行时间。
 
+这个方法一个不好的特点是需要一定的代码跨度，因此可能需要暴露部分代码逻辑。因为如果两个时间的取值点非常非常近，那很可能调试者在两者之间没有断点从而迅速跳过。
+
 ```c
 extern "C"
 JNIEXPORT jstring
@@ -282,5 +284,122 @@ void my_sigtrap(int sig){
 5. Dalvik虚拟机内部相关字段
 
 其它方法可能依然更适合主线程/进程自己实现。本方法只是一个策略，实现可以千奇百怪，无典型代码。
+
+这里使用乌云以前某文章的样例代码：
+```c
+int pipefd[2];
+int childpid;
+
+void *anti3_thread(void *){
+
+    int statue=-1,alive=1,count=0;
+
+    close(pipefd[1]);
+
+    while(read(pipefd[0],&statue,4)>0)
+        break;
+    sleep(1);
+
+    //这里改为非阻塞
+    fcntl(pipefd[0], F_SETFL, O_NONBLOCK); //enable fd的O_NONBLOCK
+
+    LOGI("pip-->read = %d", statue);
+
+    while(true) {
+
+        LOGI("pip--> statue = %d", statue);
+        read(pipefd[0], &statue, 4);
+        sleep(1);
+
+        LOGI("pip--> statue2 = %d", statue);
+        if (statue != 0) {
+            kill(childpid,SIGKILL);
+            kill(getpid(), SIGKILL);
+            return NULL;
+        }
+        statue = -1;
+    }
+}
+
+void anti3(){
+    int pid,p;
+    FILE *fd;
+    char filename[MAX];
+    char line[MAX];
+
+    pid = getpid();
+    sprintf(filename,"/proc/%d/status",pid);// 读取proc/pid/status中的TracerPid
+    p = fork();
+    if(p==0) //child
+    {
+        LOGI("Child");
+        close(pipefd[0]); //关闭子进程的读管道
+        int pt,alive=0;
+        pt = ptrace(PTRACE_TRACEME, 0, 0, 0); //子进程反调试
+        while(true)
+        {
+            fd = fopen(filename,"r");
+            while(fgets(line,MAX,fd))
+            {
+                if(strstr(line,"TracerPid") != NULL)
+                {
+                    LOGI("line %s",line);
+                    int statue = atoi(&line[10]);
+                    LOGI("########## tracer pid:%d", statue);
+                    write(pipefd[1],&statue,4);//子进程向父进程写 statue值
+
+                    fclose(fd);
+
+                    if(statue != 0)
+                    {
+                        LOGI("########## tracer pid:%d", statue);
+                        return ;
+                    }
+
+                    break;
+                }
+            }
+            sleep(1);
+
+        }
+    }else{
+        LOGI("Father");
+        childpid = p;
+    }
+}
+
+extern "C"
+JNIEXPORT jstring
+
+JNICALL
+Java_com_sec_gtoad_antidebug_MainActivity_stringFromFork(
+        JNIEnv *env,
+        jobject /* this */) {
+    std::string hello = "Hello from fork";
+    pthread_t id_0;
+    id_0 = pthread_self();
+    pipe(pipefd);
+    pthread_create(&id_0,NULL,anti3_thread,(void*)NULL);
+    LOGI("Start");
+    anti3();
+    return env->NewStringUTF(hello.c_str());
+}
+```
+
+## 样例APK
+
+为方便读者学习和理解，这边本人提供一个没有开android:debugable="false"的[apk文件](/img/in-post/post-android-anti-debug/anti-debug.apk)。其集成了所有上述的反调试方法最简单的样例。
+
+每个方法都有一个按钮，对应一个JNI函数，读者可以通过点击不同的按钮来尝试调试不同的样例。当前`基于套路的检测`这个方法对应的`Trck`按钮还没想到比较好的样例展示方法，其它按钮效果如下：
+
+1. `TIME`按钮：基于时间的检测，未发现调试返回"Hello from time",发现调试返回"Debug from time"
+2. `FILE`按钮：基于文件的检测，未发现调试返回"Hello from file",发现调试返回"Debug from file"
+3. `VM`按钮：Dalvik虚拟机内部相关字段，未发现调试返回"Hello from vm",发现调试返回"Debug from vm"
+4. `PTRACE`按钮：基于ptrace的检测，未发现调试返回"Hello from ptrace",发现调试返回"Debug from ptrace"
+5. `BKPT`按钮：断点扫描，未发现调试返回"Hello from bkpt",发现调试返回"Debug from bkpt"。
+6. `FORK`按钮：多进程/线程，开启检测后会立刻返回"Hello from fork",发现调试后直接杀死本APP。本按钮按下后效果持续，建议最后尝试。
+7. `SIGNAL`按钮：调试器的错误理解+信号处理，未发现调试返回"Hello from signal",发现调试后前者会让调试崩溃，后者会让调试卡死。
+
+
 
 
