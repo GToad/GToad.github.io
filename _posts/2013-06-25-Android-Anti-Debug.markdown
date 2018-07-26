@@ -240,7 +240,7 @@ bool checkBreakPoint ()
 // bkpt陷阱处：
 
     push {r0-r4}
-    breakpoint
+    breakpoint——thumb16{0x01,0xde} thumb32{0xf0,0xf7,0x00,0xa0} arm32{0x01,0x00,0x9f,0xef}
     pop {r0-r4}
     mov pc, lr
 
