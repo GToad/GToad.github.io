@@ -14,7 +14,7 @@ tags:
 
 > 本文长期维护与更新。作为一个安卓反调试的笔记吧。  
 
-> 本文为作者本人原创，转载请注明出处：[GToad Blog](https://gtoad.github.io/2018/07/05/Android-Native-Hook/)
+> 本文为作者本人原创，转载请注明出处：[GToad Blog](https://gtoad.github.io/2018/07/05/Android-Anti-Debug/)
 
 ## 前言
 
