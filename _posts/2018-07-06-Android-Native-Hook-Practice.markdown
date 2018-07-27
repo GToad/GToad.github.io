@@ -4,7 +4,7 @@ title:      "Android Native Hook工具实践"
 subtitle:   ""
 date:       2018-07-06 12:00:00
 author:     "GToad"
-header-img: "img/post-bg-2018.jpg"
+header-img: "https://gtoad.github.io/img/post-bg-2018.jpg"
 catalog: true
 tags:
     - Android
@@ -17,7 +17,7 @@ tags:
 
 > 本文章所对应项目长期维护与更新，因为在我自己的几台测试机上用得还挺顺手的。本项目作为作者本人的一个学习项目将会长期更新以修复当前可能存在的Bug以及跟进以后Android NDK可能出现的主流汇编模式。
 
-> 本文为作者本人原创，转载请注明出处：[GToad Blog](https://gtoad.github.io/2018/07/06/Android-Native-Hook-Practice/) 或 [银河安全实验室](http://galaxylab.org/)
+> 本文为作者本人原创，转载请注明出处：[GToad Blog](https://gtoad.github.io/2018/07/06/Android-Native-Hook-Practice/) 或 [银河安全实验室](http://galaxylab.org/android-native-hook%E5%B7%A5%E5%85%B7%E5%AE%9E%E8%B7%B5/)
 
 ## 前言
 
