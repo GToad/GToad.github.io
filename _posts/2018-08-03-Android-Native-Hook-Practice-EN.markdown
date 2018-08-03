@@ -21,7 +21,7 @@ tags:
 
 ## How to fix the opcode?
 
-Some e-mails was sent to me about the `B..` problems. They find I change BLS to BHI, BNE to BEQ and they think I make a mistake. I changed them all :
+Some e-mails was sent to me about the `B..` problems. They find I change BLS to BHI, BNE to BEQ and they think I make a mistake. In fact, I changed them all :
 
 1. BEQ --> BNE
 2. BNE --> BEQ
