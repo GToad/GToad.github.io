@@ -4,7 +4,7 @@ title:      "Android Native Hook工具实践"
 subtitle:   ""
 date:       2018-07-06 12:00:00
 author:     "GToad"
-header-img: "https://gtoad.github.io/img/post-bg-2018.jpg"
+header-img: "https://gtoad.github.io/img/android-four.jpg"
 catalog: true
 tags:
     - Android
