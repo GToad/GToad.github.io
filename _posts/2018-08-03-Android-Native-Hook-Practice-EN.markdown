@@ -4,7 +4,7 @@ title:      "Android Native Hook Practice EN"
 subtitle:   ""
 date:       2018-08-03 10:00:00
 author:     "GToad"
-header-img: "img/android-two.jpg"
+header-img: "img/post-bg-2018.jpg"
 catalog: true
 tags:
     - Android

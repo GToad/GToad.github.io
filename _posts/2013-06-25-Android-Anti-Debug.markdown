@@ -4,7 +4,7 @@ title:      "Android反调试技术整理与实践(未完成)"
 subtitle:   ""
 date:       2017-06-25 12:00:00
 author:     "GToad"
-header-img: "img/android-three.jpg"
+header-img: "img/android-one.png"
 catalog: true
 tags:
     - Android
