@@ -4,7 +4,7 @@ title:      "Android Inline Hook中的指令修复详解"
 subtitle:   ""
 date:       2018-07-13 12:00:00
 author:     "GToad"
-header-img: "img/android-four.png"
+header-img: "img/android-four.jpg"
 catalog: true
 tags:
     - Android
@@ -512,7 +512,7 @@ Thumb32下的其它指令无需修复，直接在备份代码中使用即可。
 
 ![](https://gtoad.github.io/img/in-post/post-android-native-hook-fix/loc_ida.png)
 
-上图中是我们使用IDA等逆向分析工具时的界面，可以看到其中有一个个小标签，这些小标签就是可能被跳转的目标。因此当我们的备份范围没有跨越两个或多个小标签的时候就不会出现其它指令跳转到我们插桩代码中间的跳转地址处的情况了。
+上图中是我们使用IDA等逆向分析工具时的界面，可以看到其中有一个个`loc`小标签，这些小标签就是可能被跳转的目标。因此当我们的备份范围没有跨越两个或多个小标签的时候就不会出现其它指令跳转到我们插桩代码中间的跳转地址处的情况了。
 
 #### 使用指导1
 
