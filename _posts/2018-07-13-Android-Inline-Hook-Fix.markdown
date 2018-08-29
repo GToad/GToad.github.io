@@ -4,7 +4,7 @@ title:      "Android Inline Hook中的指令修复详解"
 subtitle:   ""
 date:       2018-07-13 12:00:00
 author:     "GToad"
-header-img: "img/android-one.png"
+header-img: "img/android-four.png"
 catalog: true
 tags:
     - Android
@@ -510,7 +510,7 @@ Thumb32下的其它指令无需修复，直接在备份代码中使用即可。
 
 在使用Hook工具前肯定是会逆向分析的。要避免这种情况最简单的方法就是不要让自己的备份代码“跨代码块”。什么意思？看下图即可理解：
 
-![](img/in-post/post-android-native-hook-fix/loc_ida.png)
+![](https://gtoad.github.io/img/in-post/post-android-native-hook-fix/loc_ida.png)
 
 上图中是我们使用IDA等逆向分析工具时的界面，可以看到其中有一个个小标签，这些小标签就是可能被跳转的目标。因此当我们的备份范围没有跨越两个或多个小标签的时候就不会出现其它指令跳转到我们插桩代码中间的跳转地址处的情况了。
 
