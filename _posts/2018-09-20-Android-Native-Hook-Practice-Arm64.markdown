@@ -79,7 +79,7 @@ AOSP编译哪个版本？
 
 1. 360的非虫大佬9月分在自己的微信公众号上发了一篇《动手打造Android7.0以上的注入工具》——难度较高，暂且跟不上T.T。
 2. 后悔没有买450元的Nexus 6p——虽然Nexus6p可以刷6.0的系统从而避开这个问题，但是这就和我们在安卓Dalvik转ART后把测试工作环境限制在4.4之前版本一样，都是一时的退让，过几年年，大家都用Android 7.0以上的手机了，那就又不行了。
-3. AOSP中/bionic/linker/linker.cpp下存在一个灰名单，把我们的so文件加入这个灰名单就能加载。——每次测试一个新的App就重新变异一次AOSP？然后其它环境都重装？太麻烦了。
+3. AOSP中/bionic/linker/linker.cpp下存在一个灰名单，把我们的so文件加入这个灰名单就能加载。——每次测试一个新的App就重新编译一次AOSP？然后其它环境都重装？太麻烦了。
 4. 官方文档中有提及这个机制也有白名单/vendor/etc/public.libraries.txt和/system/etc/public.libraries.txt——一开始以为这个方法是最好也是最简单的。结果修改这俩白名单文件后，的确是加载了我们的so库，但是是在Zygote启动时加载了白名单中的so库。众所周知，之后启动的App都是它fork出来的，所以这些白名单so也会直接出现在新启动的所有App内，因此不会在App启动后利用`__attribute__((constructor))`来自动执行。同时由于对第三方so库的限制依然在而导致大量App奔溃。因此这个方法行不通。
 5. AOSP里把这个机制给去掉——通过查阅资料，AOSP 7.0以后关于NDK限制机制的核心代码是在 /bionic/linker/linker.cpp。通过修改其中的源码并编译出镜像刷入我的Pixel手机中，从而解决了这个问题。`采用`
 
@@ -180,7 +180,7 @@ LDR X0, [SP, -0x8]
     str     x30, [sp, #0x8]    
     ldr     x0, [sp, #0x18]
 
-    add     sp, sp, #0xf0
+    sub     sp, sp, #0xf0
     stp     X0, X1, [SP]
     stp     X2, X3, [SP,#0x10]
     stp     X4, X5, [SP,#0x20]
@@ -202,12 +202,16 @@ LDR X0, [SP, -0x8]
 
 ```
     mov     x0, sp
-    ldr     x3, _hookstub_function_addr_s
-    blr     x3
+    ldr     x3, 8
+    b       12
+
+_hookstub_function_addr_s:
+.double 0xffffffffffffffff
 ```
 
 接下来就是恢复寄存器并跳转到第三步，指令如下：
 ```
+    blr     x3
     ldr     x0, [sp, #0x100]
     msr     NZCV, x0
 
@@ -226,13 +230,18 @@ LDR X0, [SP, -0x8]
     ldp     X24, X25, [SP,#0xc0]
     ldp     X26, X27, [SP,#0xd0]
     ldp     X28, X29, [SP,#0xe0]
-    sub     sp, sp, #0xf0
+    add     sp, sp, #0xf0
      
     ldr     x30, [sp]
     add     sp, sp, #0x20
 
     stp     X1, X0, [SP, #-0x10]
-    ldr     x0, _old_function_addr_s
+    ldr     x0, 8
+    b       12
+
+_old_function_addr_s:
+.double 0xffffffffffffffff
+
     br      x0
 ```
 
@@ -244,15 +253,11 @@ LDR X0, [SP, -0x8]
 
 （插入图片）
 
-当指令修复完成后，依然是使用X0作为绝对地址来跳转回原程序中位于Hook点下20字节偏移的位置，那里就是桩代码的最后一条`LDR X0, [SP, -0x8]`它会恢复X0寄存器的。
-
-
-
-
+当指令修复完成后，依然是使用X0作为绝对地址来跳转回原程序中位于Hook点下20字节偏移的位置，那里就是桩代码的最后一条`LDR X0, [SP, -0x8]`,它会恢复X0寄存器的。
 
 ## 使用说明
 
-与前文一样，本框架的使用方法依然是读者自己找自己喜欢的进程注入的方法，如Java Hook来使得目标App加载`libHOOK.so`即可。因为本框架中的主函数依然采用`__attribute__((constructor))`的方法使得它一进入内存就会自动执行。
+与前文一样，本框架的使用方法依然是读者自己用自己喜欢的进程注入的方法，如Java Hook来使得目标App加载`libHOOK.so`即可。因为本框架中的主函数依然采用`__attribute__((constructor))`的方法使得它一进入内存就会自动执行。
 
 如果读者对Hook生效的时机有特殊要求的话，那也可以把`__attribute__((constructor))`给去掉，自行调用本框架的主函数。
 
