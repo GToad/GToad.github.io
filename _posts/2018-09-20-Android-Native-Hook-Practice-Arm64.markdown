@@ -164,11 +164,11 @@ LDR X0, [SP, -0x8]
 
 通过第一步的插桩代码，我们成功将原程序的执行流程引入了本章的`ihookstub.s`部分。首先我们需要恢复刚刚在第一步被保存在栈上的寄存器X0......吗？不用，第二部分一开始就是要用栈来保存全部的寄存器状态，所以先不急着把它从栈上拿出来。先来介绍我是打算如何在栈上保存所有寄存器的。首先，刚进入第二步时，栈的情况如图所示：
 
-(插入图片)
+![](https://gtoad.github.io/img/in-post/post-android-native-hook-practice-ARM64/STACK1.png)
 
 我打算把栈布置成如图所示的样子：
 
-（插入图片）
+![](https://gtoad.github.io/img/in-post/post-android-native-hook-practice-ARM64/STACK2.png)
 
 于是保存寄存器的指令如下：
 ```
@@ -252,7 +252,7 @@ _old_function_addr_s:
 
 一开始先把第二步跳转过来使用的X0寄存器进行恢复，然后这一步的工作就是把第一步中备份的那6条原程序的ARM64指令进行修复执行。关于修复执行的细节前文中已经有说明，这里不再赘述。给出如下案例图片：
 
-（插入图片）
+![](https://gtoad.github.io/img/in-post/post-android-native-hook-practice-ARM64/arm64hook4.png)
 
 当指令修复完成后，依然是使用X0作为绝对地址来跳转回原程序中位于Hook点下20字节偏移的位置，那里就是桩代码的最后一条`LDR X0, [SP, -0x8]`,它会恢复X0寄存器的。
 
