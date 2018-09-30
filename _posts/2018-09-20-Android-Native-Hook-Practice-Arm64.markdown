@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "ARM64下的Android Native Hook工具实践（未完成）"
+title:      "ARM64下的Android Native Hook工具实践"
 subtitle:   ""
 date:       2018-09-20 10:30:00
 author:     "GToad"
