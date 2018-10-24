@@ -22,6 +22,10 @@ tags:
 
 > 本文对测试机环境配置的要求较高，文中使用的设备是Pixel。
 
+> [ARM32项目地址](https://github.com/GToad/Android_Inline_Hook.git)
+
+> [ARM64项目地址](https://github.com/GToad/Android_Inline_Hook_ARM64.git)
+
 ## 一些废话
 
 ARM64的手机芯片是向下兼容ARM32和Thumb-2指令集的，这也导致许多App其实并没有管用户手机是32位的还是64位的，依然只在apk中打包32位的.so而并没有arm64-v8a的so文件。并且有的App的32位so还不是armeabi-v7a，例如微信依然在使用ARMv5，这个架构老得连Thumb-2都不支持。由此可见市面上相当多的App其实并没有急着去使用ARM64。
