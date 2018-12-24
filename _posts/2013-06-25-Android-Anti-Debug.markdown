@@ -393,7 +393,7 @@ Java_com_sec_gtoad_antidebug_MainActivity_stringFromFork(
 
 ## 样例APK
 
-为方便读者学习和理解，这边本人提供一个没有开android:debugable="false"的[apk文件](/img/in-post/post-android-anti-debug/anti-debug.apk)。其集成了所有上述的反调试方法最简单的样例。
+为方便读者学习和理解，这边本人提供一个没有开android:debugable="false"的[apk文件](https://github.com/GToad/Android_Anti_Debug/releases/download/1.0.0/anti-debug.apk)。其集成了所有上述的反调试方法最简单的样例。
 
 每个方法都有一个按钮，对应一个JNI函数，读者可以通过点击不同的按钮来尝试调试不同的样例。当前`基于套路的检测`这个方法对应的`Trck`按钮还没想到比较好的样例展示方法，其它按钮效果如下：
 
