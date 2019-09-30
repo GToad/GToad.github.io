@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "V8引擎漏洞分析环境与调试方法基础"
+title:      "V8引擎漏洞分析环境与调试方法基础（工事中）"
 subtitle:   ""
 date:       2019-07-25 10:30:00
 author:     "GToad"
@@ -20,6 +20,8 @@ tags:
 
 ## V8环境搭建
 
+#### depot_tools
+
 本人使用Ubuntu16.04。
 
 根据官方文档可知，先要进行deptools的安装。先git clone下项目。
@@ -34,15 +36,25 @@ git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
 export PATH=$PATH:/path/to/depot_tools
 ```
 
-然后进行V8源码的下载。
+#### V8
+
+然后进行V8源码的下载，需要ke学上网且稳定。
 ```
 fetch v8
 gclient sync
 ```
 
+编译代码：
+```
+tools/dev/v8gen.py x64.debug
+ninja -C out.gn/x64.debug d8
+```
+
 ## 调试方法
 
-使用`GDB`进行调试，V8团队还写了个GDB的辅助调试脚本，可以从[这里](https://github.com/GToad/GToad.github.io/releases/download/20190930/gdbinit_v8)下载,也可以直接复制黏贴下方脚本。
+#### gdbinit_v8脚本
+
+使用`GDB`进行调试，V8团队还写了个GDB的辅助调试脚本`gdbinit_v8`，可以从[这里](https://github.com/GToad/GToad.github.io/releases/download/20190930/gdbinit_v8)下载,也可以直接复制黏贴下方脚本，并在`.gdbinit`中加载。
 ```
 # Copyright 2014 the V8 project authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -272,6 +284,8 @@ gdb.execute("set environment V8_GDBINIT_SOURCED=1")
 end
 ```
 
+#### 脚本指令
+
 找到想要调试的JS脚本，通过在脚本中事先添加两种代码来辅助之后的调试过程：
 1. `%DebugPrint(arg1)`——该方法会打印目标对象的内存地址并对其主要信息进行输出。
 2. `%SystemBreak()`——该方法可以在脚本中下断点。
@@ -316,11 +330,13 @@ DebugPrint: 0x36922172ba11: [Function]
  - construction counter: 0
 ```
 
+#### GDB指令
+
 使用GDB对编译出来的d8文件进行调试，并设定参数`set args --natives-syntax /path/to/jsscript.js`使其加载指定的JS脚本。
 
-然后使用`r`命令运行后，脚本就会暂停在%SystemBreak()处，并且已经执行的`%DebugPrint()`方法会输出指定对象的信息。
+然后使用`r`命令运行后，脚本就会暂停在`%SystemBreak()`处，并且已经执行的`%DebugPrint()`方法会输出指定对象的信息。
 
-使用gdb_init中的`job`指令可以对指定内存地址上的对象进行信息输出。
+使用`gdbinit_v8`中的`job`指令可以对指定内存地址上的对象进行信息输出。
 ```
 pwndbg> job 0x36922172ba11
 0x36922172ba11: [Function]
@@ -360,7 +376,7 @@ pwndbg> telescope 0x36922172ba10
 
 ## 漏洞版本
 
-之前编译的V8版本可能不是已知存在漏洞的版本，为了验证V8的漏洞，我们需要去查看漏洞信息，找到修复该漏洞的版本，然后记下该版本的上一个版本。最后使用`git checkout`命令来切换后，重新进行编译。例如CVE-2016-5198：
+之前编译的V8版本可能不是已知存在漏洞的版本，为了验证V8的漏洞，我们需要去查看漏洞信息，找到修复该漏洞的版本，然后记下该版本的上一个版本。最后使用`git checkout`命令来切换后，重新进行编译。例如`CVE-2016-5198`：
 
 ```
 git checkout a7a350012c05f644f3f373fb48d7ac72f7f60542
@@ -370,6 +386,118 @@ ninja -C out.gn/x64.debug d8
 ```
 
 使用编译后的d8对漏洞的POC进行运行，如果能够达到异常的效果则说明版本对了，然后进一步使用上面的方法进行调试。
+
+## JIT优化
+
+由于最近大部分漏洞会需要触发JIT优化，因此，可以使用`--print-code`来直接获得JIT优化前后的机器代码。例如：
+
+```
+--- Raw source ---
+
+() {
+    n.xyz = 0x826852f4;
+    parseInt('AAAAAAAA');
+}
+
+
+--- Code ---
+
+source_position = 54
+kind = FUNCTION
+name = Check
+compiler = full-codegen
+Instructions (size = 220)
+0x14161c9069c0     0  55             push rbp
+0x14161c9069c1     1  4889e5         REX.W movq rbp,rsp
+0x14161c9069c4     4  56             push rsi
+0x14161c9069c5     5  57             push rdi
+0x14161c9069c6     6  488b4f2f       REX.W movq rcx,[rdi+0x2f]
+0x14161c9069ca    10  488b490f       REX.W movq rcx,[rcx+0xf]
+0x14161c9069ce    14  83411b01       addl [rcx+0x1b],0x1
+0x14161c9069d2    18  493ba5600c0000 REX.W cmpq rsp,[r13+0xc60]
+0x14161c9069d9    25  7305           jnc 32  (0x14161c9069e0)
+0x14161c9069db    27  e800bff5ff     call StackCheck  (0x14161c8628e0)    ;; code: BUILTIN
+0x14161c9069e0    32  48b80000000002000000 REX.W movq rax,0x200000000
+0x14161c9069ea    42  e8f1d9ffff     call 0x14161c9043e0     ;; code: LOAD_GLOBAL_IC
+0x14161c9069ef    47  50             push rax
+0x14161c9069f0    48  48b8a1c36a3a94050000 REX.W movq rax,0x5943a6ac3a1    ;; object: 0x5943a6ac3a1 <Number: 2.18788e+09>
+0x14161c9069fa    58  5a             pop rdx
+0x14161c9069fb    59  48b919b06a3a94050000 REX.W movq rcx,0x5943a6ab019    ;; object: 0x5943a6ab019 <String[3]: xyz>
+0x14161c906a05    69  48bf0000000004000000 REX.W movq rdi,0x400000000
+0x14161c906a0f    79  e84cb8f0ff     call 0x14161c812260     ;; code: STORE_IC
+0x14161c906a14    84  488b75f8       REX.W movq rsi,[rbp-0x8]
+0x14161c906a18    88  48b80000000008000000 REX.W movq rax,0x800000000
+0x14161c906a22    98  e8b9d9ffff     call 0x14161c9043e0     ;; code: LOAD_GLOBAL_IC
+0x14161c906a27   103  50             push rax
+0x14161c906a28   104  49ba112328f6373d0000 REX.W movq r10,0x3d37f6282311    ;; object: 0x3d37f6282311 <undefined>
+0x14161c906a32   114  4152           push r10
+0x14161c906a34   116  49ba39b06a3a94050000 REX.W movq r10,0x5943a6ab039    ;; object: 0x5943a6ab039 <String[8]: AAAAAAAA>
+0x14161c906a3e   126  4152           push r10
+0x14161c906a40   128  48ba0000000006000000 REX.W movq rdx,0x600000000
+0x14161c906a4a   138  488b7c2410     REX.W movq rdi,[rsp+0x10]
+0x14161c906a4f   143  b801000000     movl rax,0x1
+0x14161c906a54   148  e8e7ddffff     call 0x14161c904840     ;; code: CALL_IC
+0x14161c906a59   153  488b75f8       REX.W movq rsi,[rbp-0x8]
+0x14161c906a5d   157  4883c408       REX.W addq rsp,0x8
+0x14161c906a61   161  498b45a0       REX.W movq rax,[r13-0x60]
+0x14161c906a65   165  48bb81c46a3a94050000 REX.W movq rbx,0x5943a6ac481    ;; object: 0x5943a6ac481 Cell for 6144
+0x14161c906a6f   175  83430bd1       addl [rbx+0xb],0xd1
+0x14161c906a73   179  791f           jns 212  (0x14161c906a94)
+0x14161c906a75   181  50             push rax
+0x14161c906a76   182  e8e5bdf5ff     call InterruptCheck  (0x14161c862860)    ;; code: BUILTIN
+0x14161c906a7b   187  58             pop rax
+0x14161c906a7c   188  48bb81c46a3a94050000 REX.W movq rbx,0x5943a6ac481    ;; object: 0x5943a6ac481 Cell for 6144
+0x14161c906a86   198  49ba0000000000180000 REX.W movq r10,0x180000000000
+0x14161c906a90   208  4c895307       REX.W movq [rbx+0x7],r10
+0x14161c906a94   212  c9             leavel
+0x14161c906a95   213  c20800         ret 0x8
+
+--- Optimized code ---
+
+optimization_id = 1
+source_position = 54
+kind = OPTIMIZED_FUNCTION
+name = Check
+stack_slots = 5
+compiler = crankshaft
+Instructions (size = 186)
+0x14161c906c40     0  55             push rbp
+0x14161c906c41     1  4889e5         REX.W movq rbp,rsp
+0x14161c906c44     4  56             push rsi
+0x14161c906c45     5  57             push rdi
+0x14161c906c46     6  4883ec08       REX.W subq rsp,0x8
+0x14161c906c4a    10  488b45f8       REX.W movq rax,[rbp-0x8]
+0x14161c906c4e    14  488945e8       REX.W movq [rbp-0x18],rax
+0x14161c906c52    18  488bf0         REX.W movq rsi,rax
+0x14161c906c55    21  493ba5600c0000 REX.W cmpq rsp,[r13+0xc60]
+0x14161c906c5c    28  7305           jnc 35  (0x14161c906c63)
+0x14161c906c5e    30  e87dbcf5ff     call StackCheck  (0x14161c8628e0)    ;; code: BUILTIN
+0x14161c906c63    35  48b879bd6a3a94050000 REX.W movq rax,0x5943a6abd79    ;; object: 0x5943a6abd79 PropertyCell for 0x20753df547c1 <a Set with map 0x316d38a8c391>
+0x14161c906c6d    45  488b400f       REX.W movq rax,[rax+0xf]
+0x14161c906c71    49  49ba0000805e0a4de041 REX.W movq r10,0x41e04d0a5e800000
+0x14161c906c7b    59  c4c1f96ec2     vmovq xmm0,r10
+0x14161c906c80    64  488b4007       REX.W movq rax,[rax+0x7]
+0x14161c906c84    68  488b400f       REX.W movq rax,[rax+0xf]
+0x14161c906c88    72  c5fb114007     vmovsd [rax+0x7],xmm0
+0x14161c906c8d    77  49ba112328f6373d0000 REX.W movq r10,0x3d37f6282311    ;; object: 0x3d37f6282311 <undefined>
+0x14161c906c97    87  4152           push r10
+0x14161c906c99    89  49ba39b06a3a94050000 REX.W movq r10,0x5943a6ab039    ;; object: 0x5943a6ab039 <String[8]: AAAAAAAA>
+0x14161c906ca3    99  4152           push r10
+0x14161c906ca5   101  48bf51d8683a94050000 REX.W movq rdi,0x5943a68d851    ;; object: 0x5943a68d851 <JS Function parseInt (SharedFunctionInfo 0x3d37f62bce11)>
+0x14161c906caf   111  488b75e8       REX.W movq rsi,[rbp-0x18]
+0x14161c906cb3   115  488b7727       REX.W movq rsi,[rdi+0x27]
+0x14161c906cb7   119  498b55a0       REX.W movq rdx,[r13-0x60]
+0x14161c906cbb   123  b801000000     movl rax,0x1
+0x14161c906cc0   128  bb02000000     movl rbx,0x2
+0x14161c906cc5   133  e836efefff     call ArgumentsAdaptorTrampoline  (0x14161c805c00)    ;; code: BUILTIN
+0x14161c906cca   138  48b8112328f6373d0000 REX.W movq rax,0x3d37f6282311    ;; object: 0x3d37f6282311 <undefined>
+0x14161c906cd4   148  488be5         REX.W movq rsp,rbp
+0x14161c906cd7   151  5d             pop rbp
+0x14161c906cd8   152  c20800         ret 0x8
+0x14161c906cdb   155  90             nop
+```
+
+可见优化后的代码去除了一些“冗余”检查，也带来了一些安全问题。
 
 ## 参考
 
