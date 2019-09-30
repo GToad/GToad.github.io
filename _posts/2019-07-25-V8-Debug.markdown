@@ -42,7 +42,7 @@ gclient sync
 
 ## 调试方法
 
-使用`GDB`进行调试，V8团队还写了个GDB的辅助调试脚本，可以从[这里]()下载,也可以直接复制黏贴下方脚本。
+使用`GDB`进行调试，V8团队还写了个GDB的辅助调试脚本，可以从[这里](https://github.com/GToad/GToad.github.io/releases/download/20190930/gdbinit_v8)下载,也可以直接复制黏贴下方脚本。
 ```
 # Copyright 2014 the V8 project authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -342,7 +342,7 @@ pwndbg> job 0x36922172ba11
    #prototype: 0x21c960155799 <AccessorInfo> (accessor constant)
 ```
 
-注意，V8中object的地址+1才会被理解为object，否则末尾bit为0的话会被理解为SMI。具体JS引擎这么设计的原理可以参考这个[PPT](),这里就不多介绍了。
+注意，V8中object的地址+1才会被理解为object，否则末尾bit为0的话会被理解为SMI。具体JS引擎这么设计的原理可以参考这个[PPT](https://github.com/GToad/GToad.github.io/releases/download/20190930/blackhat_us_18_attacking_client_side_jit_compilers.pdf),这里就不多介绍了。
 
 使用`telescope`查看指定内存的数据情况，此处由于不涉及对象的理解，直接使用实际地址即可。也可以使用GDB自带的`x/`命令，个人比较喜欢后者。
 
@@ -373,5 +373,5 @@ ninja -C out.gn/x64.debug d8
 
 ## 参考
 
-[Attacking Client-Side JIT Compilers]()
+[Attacking Client-Side JIT Compilers](https://github.com/GToad/GToad.github.io/releases/download/20190930/blackhat_us_18_attacking_client_side_jit_compilers.pdf)
 [StarCTF-Freebuf](https://www.freebuf.com/vuls/203721.html)
