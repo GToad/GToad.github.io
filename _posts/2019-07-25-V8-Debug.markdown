@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "V8引擎漏洞分析环境与调试方法基础（工事中）"
+title:      "V8引擎漏洞分析环境与调试方法基础"
 subtitle:   ""
 date:       2019-07-25 10:30:00
 author:     "GToad"
