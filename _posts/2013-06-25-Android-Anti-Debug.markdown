@@ -113,7 +113,7 @@ Java_com_sec_gtoad_antidebug_MainActivity_stringFromFile(
 
 本方法套路多又深，没有代表性的代码。
 
-## Dalvik虚拟机内部相关字段
+## VM内部相关字段
 
 Android Java虚拟机结构中也保存了是否被调试的相关数据。Android 5.0以前的系统版本中可以通过调用java.lang.Object->dalvik.system.VMDebug->Dalvik_dalvik_system_VMDebug_isDebuggerConnected()来获得结果。之后的版本中改成了android.os.Debug类下的isDebuggerConnected()方法。
 由于是Java层的系统调用，所以相比于Native层，本方法会更容易被发现，且被Hook篡改返回值也会更简单。
@@ -126,6 +126,23 @@ if(android.os.Debug.isDebuggerConnected()){
                     Toast.makeText(context, "Hello from vm",Toast.LENGTH_LONG).show();
                 }
 ```
+
+对于这类依靠Android API的检测方法的绕过不仅可以使用Hook，也可以直接修改测试机的系统，例如使用Nexus/Pixel进行AOSP编译，修改其中相关API的源码。
+
+## 基于文件解析的反调试
+
+例如解析某款APP，发现IDA等工具对其部分so文件解析存在错误。这些错误引起的原因主要有两个：
+
+1. 文件扩展名是假的，文件其实需要使用别的文件格式去解析。
+2. 文件部分数据被修改，影响逆向工具对其的解析，但不影响APP的正常运行。
+
+例如如下so文件在section header中进行了数据修改，使得IDA无法顺利解析该文件。
+
+![](/img/in-post/post-android-anti-debug/libsgmain.png)
+
+针对原因1，我们可以使用binwalk等分析工具去找出其原本真正的文件格式。
+
+针对原因2，我们需要修复文件内容直到工具可以顺利解析它们。
 
 ## ptrace
 
