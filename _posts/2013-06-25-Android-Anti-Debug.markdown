@@ -148,7 +148,7 @@ if(android.os.Debug.isDebuggerConnected()){
 
 由于Linux下每个进程同一时刻最多只能被一个进程调试，因此APP可以通过自己ptrace自己的方式来抢先占坑。
 
-```
+```c++
 extern "C"
 JNIEXPORT jstring
 
@@ -181,7 +181,7 @@ IDA等调试器在调试时候的原理是向断点地址插入breakpoint汇编�
 
 关键的寻找breakpoint代码如下：
 
-```c
+```c++
 bool checkBreakPoint ()
 {
     __android_log_print(ANDROID_LOG_INFO,"JNI","13838438");
@@ -240,7 +240,7 @@ bool checkBreakPoint ()
 ![](/img/in-post/post-android-anti-debug/bkpt3.png)
 
 关键代码如下：
-```c
+```c++
 // 跳转到bkpt陷阱处：
 
     __asm__("push {r5}\n\t"
@@ -288,7 +288,7 @@ void my_sigtrap(int sig){
 
 ![](/img/in-post/post-android-anti-debug/code1632confusion.png)
 
-![](/img/in-post/post-android-anti-debug/code1632confusion.png)
+![](/img/in-post/post-android-anti-debug/code1632confusion2.png)
 
 ## 多进程/线程
 
@@ -308,7 +308,7 @@ void my_sigtrap(int sig){
 
 ![](/img/in-post/post-android-anti-debug/wooyun-anti-debug-fork.png)
 
-```c
+```c++
 int pipefd[2];
 int childpid;
 
