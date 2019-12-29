@@ -61,7 +61,7 @@ Java_com_sec_gtoad_antidebug_MainActivity_stringFromTime(
 3. /proc/pid/wchan 和 /proc/pid/task/pid/wchan：调试状态下，里面内容为ptrace_stop。
 ![](/img/in-post/post-android-anti-debug/file3.png)
 
-```c
+```c++
 extern "C"
 JNIEXPORT jstring
 
@@ -127,7 +127,14 @@ if(android.os.Debug.isDebuggerConnected()){
                 }
 ```
 
-对于这类依靠Android API的检测方法的绕过不仅可以使用Hook，也可以直接修改测试机的系统，例如使用Nexus/Pixel进行AOSP编译，修改其中相关API的源码。
+对于这类依靠Android API的检测方法的绕过不仅可以使用Hook，也可以直接修改测试机的系统，例如使用Nexus/Pixel进行AOSP编译，修改其中相关API的源码。如下修改了dalvik/vm/Debugger.cpp:
+```c++
+bool dvmDbgIsDebuggerConnected()
+{
+    return false;
+    //return gDvm.debuggerActive;
+}
+```
 
 ## 基于文件解析的反调试
 
